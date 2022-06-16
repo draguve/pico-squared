@@ -2,6 +2,9 @@
 project(PiPicoPico)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.7 FATAL_ERROR)
 
+cmake_policy(SET CMP0114 OLD)
+cmake_policy(SET CMP0054 OLD)
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # compiler must be 17
@@ -32,21 +35,17 @@ include_directories(${ANTLR4_INCLUDE_DIRS})
 find_package(ANTLR REQUIRED)
 
 # Call macro to add lexer and grammar to your build dependencies.
-antlr_target(SampleGrammarLexer TLexer.g4 LEXER
-        PACKAGE antlrcpptest)
-antlr_target(SampleGrammarParser TParser.g4 PARSER
-        PACKAGE antlrcpptest
-        DEPENDS_ANTLR SampleGrammarLexer
-        COMPILE_FLAGS -lib ${ANTLR_SampleGrammarLexer_OUTPUT_DIR})
+antlr_target(Lua Lua.g4 LEXER PARSER LISTENER VISITOR PACKAGE LuaLanguage)
+
 
 # include generated files in project environment
-include_directories(${ANTLR_SampleGrammarLexer_OUTPUT_DIR})
-include_directories(${ANTLR_SampleGrammarParser_OUTPUT_DIR})
+include_directories(${ANTLR_Lua_OUTPUT_DIR})
 
 # add generated grammar to demo binary target
-add_executable(demo main.cpp
-        ${ANTLR_SampleGrammarLexer_CXX_OUTPUTS}
-        ${ANTLR_SampleGrammarParser_CXX_OUTPUTS})
+add_executable(demo
+        ${ANTLR_Lua_CXX_OUTPUTS}
+        main.cpp)
+
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-target_link_libraries(demo PRIVATE antlr4_static  Threads::Threads)
+target_link_libraries(demo PRIVATE antlr4_static Threads::Threads)
