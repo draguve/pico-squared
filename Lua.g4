@@ -57,25 +57,25 @@ block
     ;
 
 stat
-    : ';'
-    | varlist '=' explist
-    | functioncall
-    | var_ (operatorMulDivMod | operatorAddSub | operatorBitwise | operatorStrcat) '=' exp //What happens its a list??
+    : ';' #lineEnd
+    | varlist '=' explist #variableDeclaration
+    | functioncall #functionCallStat
+    | var_ (operatorMulDivMod | operatorAddSub | operatorBitwise | operatorStrcat) '=' exp #incrementalInit //What happens its a list??
     // note that the LHS appears twice, so for TBL[FN()]+=1, FN() will be called twice.
-    | label
-    | 'break'
-    | 'goto' NAME
-    | 'do' block 'end'
-    | 'while' exp 'do' block 'end'
-    | 'repeat' block 'until' exp
-    | 'if' '(' exp ')' stat
-    | 'if' exp 'then' block ('elseif' exp 'then' block)* ('else' block)? 'end'
-    | 'for' NAME '=' exp ',' exp (',' exp)? 'do' block 'end'
-    | 'for' namelist 'in' explist 'do' block 'end'
-    | 'function' funcname funcbody
-    | 'local' 'function' NAME funcbody
-    | 'local' attnamelist ('=' explist)?
-    | operatorPrint exp
+    | label #labelStat
+    | 'break' #break
+    | 'goto' NAME #gotoLabel
+    | 'do' block 'end' #doStat
+    | 'while' exp 'do' block 'end' #whileLoop
+    | 'repeat' block 'until' exp #repeatLoop
+    | 'if' '(' exp ')' stat #ifshorthand
+    | 'if' exp 'then' block ('elseif' exp 'then' block)* ('else' block)? 'end' #ifthen
+    | 'for' NAME '=' exp ',' exp (',' exp)? 'do' block 'end' #forloop
+    | 'for' namelist 'in' explist 'do' block 'end' #forshorthand
+    | 'function' funcname funcbody #functionDeclaration
+    | 'local' 'function' NAME funcbody #localFunctionDeclaration
+    | 'local' attnamelist ('=' explist)? #localVariableDecalaration
+    | operatorPrint exp #printStatement
     ;
 
 attnamelist

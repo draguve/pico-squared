@@ -38,6 +38,6 @@ int main(int argc, const char* argv[]) {
     LuaParser::ChunkContext* tree = parser.chunk();
 
     Visitor visitor;
-    PicoAst ast = std::any_cast<PicoAst>(visitor.visitChunk(tree));
+    PicoAst ast = std::any_cast<PicoAst>(visitor.visitGlobalChunk(tree));
     ast.print();
 }

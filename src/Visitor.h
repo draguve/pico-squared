@@ -5,14 +5,15 @@
 #ifndef PIPICOPICO_VISITOR_H
 #define PIPICOPICO_VISITOR_H
 #include "LuaBaseVisitor.h"
+#include "PicoAst.h"
 
 namespace LuaLanguage {
 
     class Visitor : public LuaBaseVisitor {
-
     public:
-        std::any visitChunk(LuaParser::ChunkContext *ctx) override;
-        std::any visitBlock(LuaParser::BlockContext *ctx) override;
+        PicoAst picoAst;
+        std::any visitGlobalChunk(LuaParser::ChunkContext *ctx);
+        void visitGlobalBlock(LuaParser::BlockContext *ctx);
     };
 
 } // LuaLanguage
