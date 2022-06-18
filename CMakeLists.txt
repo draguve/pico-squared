@@ -41,11 +41,14 @@ antlr_target(Lua Lua.g4 LEXER PARSER LISTENER VISITOR PACKAGE LuaLanguage)
 # include generated files in project environment
 include_directories(${ANTLR_Lua_OUTPUT_DIR})
 
-# add generated grammar to demo binary target
-add_executable(demo
+# add generated grammar to binary target
+add_executable(PiPicoPico
         ${ANTLR_Lua_CXX_OUTPUTS}
-        main.cpp)
+        src/main.cpp
+        src/Visitor.cpp src/Visitor.h
+        src/PicoAst.cpp src/PicoAst.h)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-target_link_libraries(demo PRIVATE antlr4_static Threads::Threads)
+target_link_libraries(PiPicoPico PRIVATE antlr4_static Threads::Threads)
+target_link_libraries(PiPicoPico PRIVATE antlr4_static Threads::Threads)
