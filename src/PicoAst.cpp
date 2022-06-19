@@ -7,7 +7,6 @@
 
 namespace LuaLanguage {
     void PicoAst::print() {
-        std::cout << "test";
     }
 
     PicoAst::PicoAst() = default;

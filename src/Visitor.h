@@ -14,6 +14,8 @@ namespace LuaLanguage {
         PicoAst picoAst;
         std::any visitGlobalChunk(LuaParser::ChunkContext *ctx);
         void visitGlobalBlock(LuaParser::BlockContext *ctx);
+
+        std::any visitFunctionDeclaration(LuaParser::FunctionDeclarationContext *ctx) override;
     };
 
 } // LuaLanguage

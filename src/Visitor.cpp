@@ -13,7 +13,7 @@ namespace LuaLanguage {
 
         for (auto stat : ctx->stat()) {
             if(auto func = dynamic_cast<LuaParser::FunctionDeclarationContext*>(stat)){
-                std::cout<<"FunctionDeclaration\n";
+                std::cout<<std::any_cast<PicoFunc>(visitFunctionDeclaration(func)).name<<"\n";
             }
             if(auto variable = dynamic_cast<LuaParser::VariableDeclarationContext*>(stat)){
                 std::cout<<"Variable\n";
@@ -22,6 +22,12 @@ namespace LuaLanguage {
                 std::cout<<"FunctionCall\n";
             }
         }
+    }
+
+    std::any Visitor::visitFunctionDeclaration(LuaParser::FunctionDeclarationContext *ctx) {
+        PicoFunc thisFunc;
+        thisFunc.name = ctx->funcname()->NAME()[ctx->funcname()->NAME().size()-1]->getText();
+        return thisFunc;
     }
 
     std::any Visitor::visitGlobalChunk(LuaParser::ChunkContext *ctx) {

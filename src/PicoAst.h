@@ -8,13 +8,59 @@
 #define PIPICOPICO_PICOAST_H
 
 namespace LuaLanguage {
+    enum ValueTypes{
+        Number=1,
+        String=2,
+        Function=4,
+        Bool=8,
+        Table=16,
+        Array=32,
+    };
 
     class PicoVariable{
+        bool valueTypeChanges = false;
+    };
+
+    class PicoValue{
+    public:
+        int picoType = 0;
+    };
+
+    class PicoNumber : public PicoValue{
+        
+    };
+
+    class PicoString : public PicoValue{
 
     };
 
-    class PicoFunc{
+    class PicoBool : public PicoValue{
 
+    };
+
+    class PicoTable : public PicoValue{
+    public:
+        bool onlyNumberAccess = true;
+        bool onlyStringAccess = true;
+        int numberOfUniqueAccess = 0;
+        std::unordered_map<std::string ,PicoValue> data;
+    };
+
+    class PicoArray : public PicoValue{
+    public:
+        int maxSize;
+    };
+
+    class PicoStat{
+
+    };
+
+    class PicoFunc : public PicoValue{
+    public:
+        std::string name;
+        int numberOfParameters;
+        std::unordered_map<std::string,PicoVariable> parameters;
+        std::vector<PicoStat> stats;
     };
 
     class PicoAst {

@@ -68,10 +68,10 @@ stat
     | 'do' block 'end' #doStat
     | 'while' exp 'do' block 'end' #whileLoop
     | 'repeat' block 'until' exp #repeatLoop
-    | 'if' '(' exp ')' stat #ifshorthand
-    | 'if' exp 'then' block ('elseif' exp 'then' block)* ('else' block)? 'end' #ifthen
-    | 'for' NAME '=' exp ',' exp (',' exp)? 'do' block 'end' #forloop
-    | 'for' namelist 'in' explist 'do' block 'end' #forshorthand
+    | 'if' '(' exp ')' stat #ifShortHand
+    | 'if' exp 'then' block ('elseif' exp 'then' block)* ('else' block)? 'end' #ifThen
+    | 'for' NAME '=' exp ',' exp (',' exp)? 'do' block 'end' #forLoop
+    | 'for' namelist 'in' explist 'do' block 'end' #forShortHand
     | 'function' funcname funcbody #functionDeclaration
     | 'local' 'function' NAME funcbody #localFunctionDeclaration
     | 'local' attnamelist ('=' explist)? #localVariableDecalaration
