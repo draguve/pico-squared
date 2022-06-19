@@ -234,7 +234,7 @@ operatorPower
     : '^';
 
 number
-    : BINARY | INT | HEX | FLOAT | HEX_FLOAT
+    : BINARY | INT | HEX | BINARY_FLOAT | FLOAT | HEX_FLOAT
     ;
 
 string
@@ -270,8 +270,12 @@ INT
     ;
 
 BINARY
-    : '0b' [01]+
-    | '0b' [01]+ '.' [01]+
+    : '0' [bB] BinaryDigit+
+    ;
+
+BINARY_FLOAT
+    : '0' [bB] BinaryDigit+ '.' BinaryDigit*
+    | '0' [bB] '.' BinaryDigit+
     ;
 
 HEX
@@ -334,6 +338,11 @@ Digit
 fragment
 HexDigit
     : [0-9a-fA-F]
+    ;
+
+fragment
+BinaryDigit
+    : [01]
     ;
 
 COMMENT

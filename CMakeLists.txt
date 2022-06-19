@@ -37,7 +37,6 @@ find_package(ANTLR REQUIRED)
 # Call macro to add lexer and grammar to your build dependencies.
 antlr_target(Lua Lua.g4 LEXER PARSER LISTENER VISITOR PACKAGE LuaLanguage)
 
-
 # include generated files in project environment
 include_directories(${ANTLR_Lua_OUTPUT_DIR})
 
@@ -45,6 +44,7 @@ include_directories(${ANTLR_Lua_OUTPUT_DIR})
 add_executable(PiPicoPico
         ${ANTLR_Lua_CXX_OUTPUTS}
         src/main.cpp
+        src/fixed/fixed.h
         src/Visitor.cpp src/Visitor.h
         src/PicoAst.cpp src/PicoAst.h)
 

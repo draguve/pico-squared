@@ -6,8 +6,29 @@
 #include "PicoAst.h"
 
 namespace LuaLanguage {
-    void PicoAst::print() {
+    PicoAst::PicoAst() = default;
+
+    PicoNumber::PicoNumber() {
+        picoType = Number;
     }
 
-    PicoAst::PicoAst() = default;
+    PicoFunc::PicoFunc(){
+        picoType = Function;
+    }
+
+    PicoBool::PicoBool() {
+        picoType = Bool;
+    }
+
+    PicoString::PicoString() {
+        picoType = String;
+    }
+
+    PicoTable::PicoTable() {
+        picoType = Table;
+    }
+
+    PicoArray::PicoArray(){
+        picoType = Array;
+    }
 } // LuaLanguage

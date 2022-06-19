@@ -16,6 +16,7 @@ namespace LuaLanguage {
         void visitGlobalBlock(LuaParser::BlockContext *ctx);
 
         std::any visitFunctionDeclaration(LuaParser::FunctionDeclarationContext *ctx) override;
+        std::any visitNumber(LuaParser::NumberContext *ctx) override;
     };
 
 } // LuaLanguage

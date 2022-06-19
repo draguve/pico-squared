@@ -8,20 +8,7 @@
 namespace LuaLanguage {
 
     void Visitor::visitGlobalBlock(LuaParser::BlockContext *ctx) {
-
-        std::vector<LuaParser::StatContext*> stats = ctx->stat();
-
-        for (auto stat : ctx->stat()) {
-            if(auto func = dynamic_cast<LuaParser::FunctionDeclarationContext*>(stat)){
-                std::cout<<std::any_cast<PicoFunc>(visitFunctionDeclaration(func)).name<<"\n";
-            }
-            if(auto variable = dynamic_cast<LuaParser::VariableDeclarationContext*>(stat)){
-                std::cout<<"Variable\n";
-            }
-            if(auto functionCall = dynamic_cast<LuaParser::FunctionCallStatContext*>(stat)){
-                std::cout<<"FunctionCall\n";
-            }
-        }
+        antlr4::tree::AbstractParseTreeVisitor::visitChildren(ctx);
     }
 
     std::any Visitor::visitFunctionDeclaration(LuaParser::FunctionDeclarationContext *ctx) {
@@ -33,5 +20,30 @@ namespace LuaLanguage {
     std::any Visitor::visitGlobalChunk(LuaParser::ChunkContext *ctx) {
         visitGlobalBlock(ctx->block());
         return picoAst;
+    }
+
+    std::any Visitor::visitNumber(LuaParser::NumberContext *ctx) {
+        auto toReturn = new PicoNumber();
+        if(ctx->INT()){
+            toReturn->number = std::stoi(ctx->INT()->getText());
+        }
+        if(ctx->FLOAT()){
+            toReturn->isInteger = false;
+            toReturn->number = std::stod(ctx->FLOAT()->getText());
+        }
+        if(ctx->HEX()){
+            toReturn->number = std::stoi(ctx->HEX()->getText().substr(2), nullptr,16);
+        }
+        if(ctx->BINARY()){
+            toReturn->number = std::stoi(ctx->BINARY()->getText().substr(2), nullptr,2);
+        }
+        std::cout << toReturn->number << "\n";
+        if(ctx->HEX_FLOAT()){
+            //What
+        }
+        if(ctx->BINARY_FLOAT()){
+            //How
+        }
+        return toReturn;
     }
 } // LuaLanguage

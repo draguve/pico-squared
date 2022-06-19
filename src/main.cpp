@@ -26,6 +26,7 @@ int main(int argc, const char* argv[]) {
 
     if(argc<2){
         std::cout << "Please input filename to parse";
+        return -1;
     }
 
     stream.open(argv[1]); //replace with filename from input
@@ -39,5 +40,5 @@ int main(int argc, const char* argv[]) {
 
     Visitor visitor;
     PicoAst ast = std::any_cast<PicoAst>(visitor.visitGlobalChunk(tree));
-    ast.print();
+    return 0;
 }
