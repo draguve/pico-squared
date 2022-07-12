@@ -12,6 +12,8 @@
 gen/
 build/
 
+tools/__pycache__/
+
 *.class
 
 # User-specific stuff
