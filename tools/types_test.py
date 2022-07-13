@@ -26,15 +26,55 @@ class LuaTypesListener(LuaListener):
     def exitFunctionDeclaration(self, ctx: LuaParser.FunctionDeclarationContext):
         self.current_func = None
 
-    def exitLocalVariableDecalaration(self, ctx:LuaParser.LocalVariableDecalarationContext):
+    def exitLocalVariableDecalaration(self, ctx: LuaParser.LocalVariableDecalarationContext):
         atts = get_list(ctx.attnamelist().NAME())
         for att in atts:
-            self.functions[self.current_func]["locals"][att.getText()] = "idk"
+            self.functions[self.current_func]["locals"][att.getText()] = {}
 
-    def exitVariableDeclaration(self, ctx:LuaParser.VariableDeclarationContext):
+    def exitVariableDeclaration(self, ctx: LuaParser.VariableDeclarationContext):
         vars = get_list(ctx.varlist().var_())
         for var in vars:
-            print(var.NAME())
+            suffixes = [str(i.NAME()) for i in get_list(var.varSuffix())]
+            find_or_add(self.globals, self.functions[self.current_func]["locals"], str(var.NAME()), suffixes)
+    # check and add all returns of type in a function
+    # what happens when it returns a nil
+
+    # check what happens when a variable is used
+    # expression parsing
+
+
+# This ignores . please fix
+def is_variable(listener: LuaTypesListener, varname, funcname):
+    if varname in listener.functions[listener.current_func]:
+        return listener.functions[listener.current_func]
+    elif varname in listener.globals:
+        return listener.globals[varname]
+
+
+def find_or_add(globs, local, name, suffixes):
+    if name in local:
+        final = local[name]
+        for suffix in suffixes:
+            if suffix in final:
+                final = final[suffix]
+            else:
+                final[suffix] = {}
+                final = final[suffix]
+    elif name in globs:
+        final = globs[name]
+        for suffix in suffixes:
+            if suffix in final:
+                final = final[suffix]
+            else:
+                final[suffix] = {}
+                final = final[suffix]
+    else:
+        globs[name] = {}
+        final = globs[name]
+        for suffix in suffixes:
+            final[suffix] = {}
+            final = final[suffix]
+    pass
 
 
 def get_list(thing):
@@ -70,6 +110,7 @@ def main():
     walker = ParseTreeWalker()
     walker.walk(listener, tree)
     pprint(listener.functions)
+    pprint(listener.globals)
 
 
 if __name__ == '__main__':
