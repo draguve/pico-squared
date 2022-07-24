@@ -4,38 +4,108 @@ from antlr4 import *
 from LuaLexer import LuaLexer
 from LuaParser import LuaParser
 from LuaVisitor import LuaVisitor
-from LuaListener import LuaListener
 from pprint import pprint
 
 
-class LuaTypesListener(LuaListener):
+class LuaTypesListener(LuaVisitor):
     def __init__(self):
-        self.current_func = None
+        self.current_func = {}
         self.globals = {}
         self.functions = {}
 
     # What about local functions
-    def enterFunctionDeclaration(self, ctx: LuaParser.FunctionDeclarationContext):
+    def visitFunctionDeclaration(self, ctx: LuaParser.FunctionDeclarationContext):
         names = []
         name = ctx.funcname().NAME()
         for n in name:
             names.append(str(n))
         self.functions[".".join(names)] = {"locals": {}}
-        self.current_func = ".".join(names)
+        self.current_func = self.functions[".".join(names)]
+        super().visitFunctionDeclaration(ctx)
+        self.current_func = {}
 
-    def exitFunctionDeclaration(self, ctx: LuaParser.FunctionDeclarationContext):
-        self.current_func = None
-
-    def exitLocalVariableDecalaration(self, ctx: LuaParser.LocalVariableDecalarationContext):
+    def visitLocalVariableDecalaration(self, ctx: LuaParser.LocalVariableDecalarationContext):
+        super(LuaTypesListener, self).visitLocalVariableDecalaration(ctx)
         atts = get_list(ctx.attnamelist().NAME())
         for att in atts:
-            self.functions[self.current_func]["locals"][att.getText()] = {}
+            self.current_func["locals"][att.getText()] = {}
 
-    def exitVariableDeclaration(self, ctx: LuaParser.VariableDeclarationContext):
+    def visitVariableDeclaration(self, ctx: LuaParser.VariableDeclarationContext):
+        super(LuaTypesListener, self).visitVariableDeclaration(ctx)
         vars = get_list(ctx.varlist().var_())
         for var in vars:
             suffixes = [str(i.NAME()) for i in get_list(var.varSuffix())]
-            find_or_add(self.globals, self.functions[self.current_func]["locals"], str(var.NAME()), suffixes)
+            find_or_add(self.globals, self.current_func["locals"], str(var.NAME()), suffixes)
+
+    def visitExp(self, ctx: LuaParser.ExpContext):
+        super(LuaTypesListener, self).visitExp(ctx)
+        if ctx.number():
+            return "Number"
+
+        if ctx.string():
+            return "String"
+
+        if ctx.functiondef():
+            return "Func"
+
+        if ctx.prefixexp():
+            print(f"prefix exp -- {ctx.getText()}")
+
+        if ctx.tableconstructor():
+            return "Table"
+
+        if ctx.operatorUnary():
+            return "Number"
+
+        if ctx.exp():
+            self.visit(ctx.exp(0))
+
+        if ctx.operatorPeek():
+            return "Number"
+
+        if ctx.operatorPower():
+            x = self.visit(ctx.exp(0))
+            y = self.visit(ctx.exp(1))
+
+        if ctx.operatorMulDivMod():
+            x = self.visit(ctx.exp(0))
+            y = self.visit(ctx.exp(1))
+
+        if ctx.operatorAddSub():
+            x = self.visit(ctx.exp(0))
+            y = self.visit(ctx.exp(1))
+
+        if ctx.operatorStrcat():
+            x = self.visit(ctx.exp(0))
+            y = self.visit(ctx.exp(1))
+
+        if ctx.operatorComparison():
+            x = self.visit(ctx.exp(0))
+            y = self.visit(ctx.exp(1))
+            return "Boolean"
+
+        if ctx.operatorAnd():
+            x = self.visit(ctx.exp(0))
+            y = self.visit(ctx.exp(1))
+
+        if ctx.operatorOr():
+            x = self.visit(ctx.exp(0))
+            y = self.visit(ctx.exp(1))
+
+        if ctx.operatorBitwise():
+            x = self.visit(ctx.exp(0))
+            y = self.visit(ctx.exp(1))
+            return "Number"
+
+    def visitNumber(self, ctx: LuaParser.NumberContext):
+        return "Number"
+
+    def visitString(self, ctx: LuaParser.StringContext):
+        return "String"
+
+    def visitTableconstructor(self, ctx: LuaParser.TableconstructorContext):
+        return "Table"
+
     # check and add all returns of type in a function
     # what happens when it returns a nil
 
@@ -45,8 +115,8 @@ class LuaTypesListener(LuaListener):
 
 # This ignores . please fix
 def is_variable(listener: LuaTypesListener, varname, funcname):
-    if varname in listener.functions[listener.current_func]:
-        return listener.functions[listener.current_func]
+    if varname in listener.current_func:
+        return listener.current_func
     elif varname in listener.globals:
         return listener.globals[varname]
 
@@ -106,11 +176,10 @@ def main():
     parser = LuaParser(stream)
     tree = parser.chunk()
     # evaluator
-    listener = LuaTypesListener()
-    walker = ParseTreeWalker()
-    walker.walk(listener, tree)
-    pprint(listener.functions)
-    pprint(listener.globals)
+    visitor = LuaTypesListener()
+    output = visitor.visit(tree)
+    pprint(visitor.functions)
+    pprint(visitor.globals)
 
 
 if __name__ == '__main__':

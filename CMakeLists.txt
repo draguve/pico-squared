@@ -1,5 +1,5 @@
 # minimum required CMAKE version
-project(PiPicoPico)
+project(PiPicoPicoCompiler)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.7 FATAL_ERROR)
 
 cmake_policy(SET CMP0114 OLD)
