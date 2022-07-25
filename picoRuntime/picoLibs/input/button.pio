@@ -1,0 +1,25 @@
+ .program  buttonio
+
+ mainloop:
+     in pins, 6      	;
+     push           	;
+     jmp mainloop 		;
+
+ % c-sdk {
+ #include "hardware/clocks.h"
+ static inline void buttonio_program_init(PIO pio, uint sm, uint offset, uint pin, float freq) {
+     pio_sm_config c = buttonio_program_get_default_config(offset);
+
+     sm_config_set_in_pins(&c, pin);
+
+     // set the state machine clock rate
+     float div = clock_get_hz(clk_sys) / freq;  // calculates the clock divider
+     sm_config_set_clkdiv(&c, div);
+
+     // Load our configuration, and jump to the start of the program
+     pio_sm_init(pio, sm, offset, &c);
+
+     // Set the state machine running
+     pio_sm_set_enabled(pio, sm, true);
+ }
+%}
