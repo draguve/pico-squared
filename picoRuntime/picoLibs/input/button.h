@@ -10,6 +10,6 @@
 #include "pico/stdlib.h"
 
 uint32_t btn();
-uint32_t btn(int k);
+bool btn_k(int k);
 void button_end_frame();
 void button_init();

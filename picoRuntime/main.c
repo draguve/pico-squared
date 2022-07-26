@@ -71,6 +71,16 @@ int main(void)
     // /*3.Refresh the picture in RAM to LCD*/
     LCD_1IN8_Display(BlackImage);
     DEV_Delay_ms(2000);
+    button_init();
+    while(true){
+        Paint_Clear(WHITE);
+        if(btn_k(0)){
+            Paint_DrawCircle(130, 20, 15, GREEN, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+        }
+        button_end_frame();
+        LCD_1IN8_Display(BlackImage);
+        DEV_Delay_ms(200);
+    }
 
 
     /* Module Exit */

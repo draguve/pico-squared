@@ -2,21 +2,22 @@
 // Created by ritwi on 7/25/2022.
 //
 
+#include <pico/printf.h>
 #include "button.h"
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "button.pio.h"
 
 PIO pio = pio0;
-uint offset = pio_add_program(pio, &buttonio_program);
-uint sm = pio_claim_unused_sm(pio, true);
-uint32_t lastInput = 0;
+uint offset;
+uint sm;
+uint32_t lastInput;
 
 uint32_t btn(){
-    return lastInput; //TODO fix this, for now 0
+    return lastInput;
 }
 
-uint32_t btn(int k){
+bool btn_k(int k){
     return lastInput & (1 << (k - 1));
 }
 
@@ -26,9 +27,14 @@ void button_end_frame(){
     while(!pio_sm_is_rx_fifo_empty(pio,sm)){
         lastInput = lastInput | pio_sm_get(pio,sm);
     }
+    printf("buttons : %lu",lastInput);
 }
 
 void button_init(){
+    const uint POWER_PIN = 22;
+    gpio_init(POWER_PIN);
+    gpio_set_dir(POWER_PIN, GPIO_OUT);
+    gpio_put(POWER_PIN, 1);
     pio = pio0;
     offset = pio_add_program(pio, &buttonio_program);
     sm = pio_claim_unused_sm(pio, true);

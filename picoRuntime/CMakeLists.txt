@@ -21,7 +21,7 @@ include_directories(./picoLibs/input)
 
 # 生成可执行文件
 add_executable(main 
-main.c
+    main.c
 )
 
 # enable usb output, disable uart output

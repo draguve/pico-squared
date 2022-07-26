@@ -2,6 +2,7 @@
 
  mainloop:
      in pins, 6      	;
+     in null, 26
      push           	;
      jmp mainloop 		;
 
