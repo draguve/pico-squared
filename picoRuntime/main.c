@@ -77,9 +77,14 @@ int main(void)
         if(btn_k(0)){
             Paint_DrawCircle(130, 20, 15, GREEN, DOT_PIXEL_1X1, DRAW_FILL_FULL);
         }
+        if(btn_k(1)){
+            Paint_DrawCircle(30, 20, 15, RED, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+        }
+        if(btn_k(2)){
+            Paint_DrawCircle(60, 20, 15, BLUE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+        }
         button_end_frame();
         LCD_1IN8_Display(BlackImage);
-        DEV_Delay_ms(200);
     }
 
 

@@ -18,7 +18,7 @@ uint32_t btn(){
 }
 
 bool btn_k(int k){
-    return lastInput & (1 << (k - 1));
+    return 0 < (lastInput & (1 << k));
 }
 
 void button_end_frame(){
@@ -27,7 +27,6 @@ void button_end_frame(){
     while(!pio_sm_is_rx_fifo_empty(pio,sm)){
         lastInput = lastInput | pio_sm_get(pio,sm);
     }
-    printf("buttons : %lu",lastInput);
 }
 
 void button_init(){
