@@ -7,6 +7,110 @@ from LuaVisitor import LuaVisitor
 from pprint import pprint
 
 
+def print_decorator(func):
+    def inner1(*args, **kwargs):
+        # calling the actual function now
+        # inside the wrapper function.
+        data = func(*args, **kwargs)
+        print(data)
+        return data
+
+    return inner1
+
+
+# Not all functions
+inbuilt_functions = {
+
+    # Graphics
+    "clip": {
+        "args": [{"argSize": -1, "type": "Tuple"}]
+    },
+    "fget": {
+        "args": [{"argSize": 1, "type": "Number"}, {"argSize": 2, "type": "Bool"}]
+    },
+    "pget": {
+        "args": [{"argSize": -1, "type": "Number"}, ]
+    },
+    "print": {
+        "args": [{"argSize": -1, "type": "Number"}, ]
+    },
+    "sget": {
+        "args": [{"argSize": -1, "type": "Number"}, ]
+    },
+    "camera": {"args": [{"argSize": -1, "type": "nil"}]},
+    "circ": {"args": [{"argSize": -1, "type": "nil"}]},
+    "circfill": {"args": [{"argSize": -1, "type": "nil"}]},
+    "oval": {"args": [{"argSize": -1, "type": "nil"}]},
+    "ovalfill": {"args": [{"argSize": -1, "type": "nil"}]},
+    "cls": {"args": [{"argSize": -1, "type": "nil"}]},
+    "color": {"args": [{"argSize": -1, "type": "nil"}]},
+    "cursor": {"args": [{"argSize": -1, "type": "nil"}]},
+    "sspr": {"args": [{"argSize": -1, "type": "nil"}]},
+    "tline": {"args": [{"argSize": -1, "type": "nil"}]},
+    "spr": {"args": [{"argSize": -1, "type": "nil"}]},
+    "sset": {"args": [{"argSize": -1, "type": "nil"}]},
+    "fillp": {"args": [{"argSize": -1, "type": "nil"}]},
+    "fset": {"args": [{"argSize": -1, "type": "nil"}]},
+    "line": {"args": [{"argSize": -1, "type": "nil"}]},
+    "pal": {"args": [{"argSize": -1, "type": "nil"}]},
+    "palt": {"args": [{"argSize": -1, "type": "nil"}]},
+    "pset": {"args": [{"argSize": -1, "type": "nil"}]},
+    "rect": {"args": [{"argSize": -1, "type": "nil"}]},
+    "rectfill": {"args": [{"argSize": -1, "type": "nil"}]},
+
+    # Tables
+    "all": {"args": [{"argSize": -1, "type": "Iterator"}]},
+    "count": {"args": [{"argSize": -1, "type": "Number"}]},
+    "ipairs": {"args": [{"argSize": -1, "type": "Iterator"}]},
+    "pack": {"args": [{"argSize": -1, "type": "Table-Array"}]},
+    "pairs": {"args": [{"argSize": -1, "type": "Iterator"}]},
+    "unpack": {"args": [{"argSize": -1, "type": "Tuple"}]},
+    "next": {"args": [{"argSize": -1, "type": "Any"}]},
+    "add": {"args": [{"argSize": -1, "type": "nil"}]},
+    "foreach": {"args": [{"argSize": -1, "type": "nil"}]},
+
+    # Input
+    "btn": {"args": [{"argSize": 1, "type": "Bool"}, {"argSize": 0, "type": "Number"}]},
+    "btnp": {"args": [{"argSize": 1, "type": "Bool"}, {"argSize": 0, "type": "Number"}]},
+
+    # Music
+    "music": {"args": [{"argSize": -1, "type": "nil"}]},
+    "sfx": {"args": [{"argSize": -1, "type": "nil"}]},
+
+    # Numbers
+    "abs": {"args": [{"argSize": -1, "type": "Number"}]},
+    "atan2": {"args": [{"argSize": -1, "type": "Number"}]},
+    "band": {"args": [{"argSize": -1, "type": "Number"}]},
+    "bnot": {"args": [{"argSize": -1, "type": "Number"}]},
+    "bor": {"args": [{"argSize": -1, "type": "Number"}]},
+    "bxor": {"args": [{"argSize": -1, "type": "Number"}]},
+    "ceil": {"args": [{"argSize": -1, "type": "Number"}]},
+    "cos": {"args": [{"argSize": -1, "type": "Number"}]},
+    "flr": {"args": [{"argSize": -1, "type": "Number"}]},
+    "lshr": {"args": [{"argSize": -1, "type": "Number"}]},
+    "max": {"args": [{"argSize": -1, "type": "Number"}]},
+    "mid": {"args": [{"argSize": -1, "type": "Number"}]},
+    "min": {"args": [{"argSize": -1, "type": "Number"}]},
+    "rnd": {"args": [{"argSize": 1, "type": "Number", "argType": "Number"}]},
+    "rotl": {"args": [{"argSize": -1, "type": "Number"}]},
+    "rotr": {"args": [{"argSize": -1, "type": "Number"}]},
+    "sgn": {"args": [{"argSize": -1, "type": "Number"}]},
+    "shl": {"args": [{"argSize": -1, "type": "Number"}]},
+    "shr": {"args": [{"argSize": -1, "type": "Number"}]},
+    "sin": {"args": [{"argSize": -1, "type": "Number"}]},
+    "sqrt": {"args": [{"argSize": -1, "type": "Number"}]},
+    "srand": {"args": [{"argSize": -1, "type": "Number"}]},
+
+}
+
+
+#
+# special = {
+# del(t, v) #return deleted
+# deli(t, i)
+# }
+
+
 class LuaTypesListener(LuaVisitor):
     def __init__(self):
         self.current_func = {}
@@ -21,130 +125,140 @@ class LuaTypesListener(LuaVisitor):
             names.append(str(n))
         self.functions[".".join(names)] = {"locals": {}}
         self.current_func = self.functions[".".join(names)]
-        super().visitFunctionDeclaration(ctx)
+        super(LuaTypesListener, self).visitFunctionDeclaration(ctx)
         self.current_func = {}
 
-    def visitLocalVariableDecalaration(self, ctx: LuaParser.LocalVariableDecalarationContext):
-        super(LuaTypesListener, self).visitLocalVariableDecalaration(ctx)
-        atts = get_list(ctx.attnamelist().NAME())
-        for att in atts:
-            self.current_func["locals"][att.getText()] = {}
+    #
+    # def visitLocalVariableDecalaration(self, ctx: LuaParser.LocalVariableDecalarationContext):
+    #     super(LuaTypesListener, self).visitLocalVariableDecalaration(ctx)
+    #     atts = get_list(ctx.attnamelist().NAME())
+    #     for att in atts:
+    #         self.current_func["locals"][att.getText()] = {}
+    #
 
     def visitVariableDeclaration(self, ctx: LuaParser.VariableDeclarationContext):
-        super(LuaTypesListener, self).visitVariableDeclaration(ctx)
         vars = get_list(ctx.varlist().var_())
-        for var in vars:
-            suffixes = [str(i.NAME()) for i in get_list(var.varSuffix())]
-            find_or_add(self.globals, self.current_func["locals"], str(var.NAME()), suffixes)
+        explist = get_list(ctx.explist().exp())
+        for j in range(len(vars)):
+            var = vars[j]
+            find_or_add_global(self.globals, self.current_func, str(var.NAME()), self.visit(explist[j]))
+
+    def visitFunctioncall(self, ctx: LuaParser.FunctioncallContext):
+        if ctx.varOrExp().getText() in inbuilt_functions:
+            if ctx.nameAndArgs(0):
+                argsLen = (len(ctx.nameAndArgs(0).args().explist().exp()))
+                return getReturnType(ctx.varOrExp().getText(), argsLen)
 
     def visitExp(self, ctx: LuaParser.ExpContext):
-        super(LuaTypesListener, self).visitExp(ctx)
+        # super(LuaTypesListener, self).visitExp(ctx)
         if ctx.number():
-            return "Number"
+            return self.visit(ctx.number())
 
         if ctx.string():
-            return "String"
+            return self.visit(ctx.string())
 
         if ctx.functiondef():
-            return "Func"
+            return self.visit(ctx.functiondef())
 
         if ctx.prefixexp():
-            print(f"prefix exp -- {ctx.getText()}")
+            return self.visit(ctx.prefixexp())
 
-        if ctx.tableconstructor():
-            return "Table"
+        # if ctx.tableconstructor():
+        #     return "Table"
+        #
+        #
+        #
+        if ctx.operatorPeek():
+            return {"type": "Any", "data": ctx.getText()}
+        #
+
+        # Arithmatic
+        if ctx.operatorPower() or ctx.operatorMulDivMod() or ctx.operatorAddSub() or ctx.operatorBitwise():
+            x = self.visit(ctx.exp(0))
+            y = self.visit(ctx.exp(1))
+            if x["type"] != "Number" or y["type"] != "Number":
+                return {"type": "any", "data": ctx.getText()}
+            return {"type": "Number", "data": ctx.getText()}
 
         if ctx.operatorUnary():
-            return "Number"
-
-        if ctx.exp():
-            self.visit(ctx.exp(0))
-
-        if ctx.operatorPeek():
-            return "Number"
-
-        if ctx.operatorPower():
             x = self.visit(ctx.exp(0))
-            y = self.visit(ctx.exp(1))
-
-        if ctx.operatorMulDivMod():
-            x = self.visit(ctx.exp(0))
-            y = self.visit(ctx.exp(1))
-
-        if ctx.operatorAddSub():
-            x = self.visit(ctx.exp(0))
-            y = self.visit(ctx.exp(1))
-
-        if ctx.operatorStrcat():
-            x = self.visit(ctx.exp(0))
-            y = self.visit(ctx.exp(1))
-
-        if ctx.operatorComparison():
-            x = self.visit(ctx.exp(0))
-            y = self.visit(ctx.exp(1))
-            return "Boolean"
-
-        if ctx.operatorAnd():
-            x = self.visit(ctx.exp(0))
-            y = self.visit(ctx.exp(1))
-
-        if ctx.operatorOr():
-            x = self.visit(ctx.exp(0))
-            y = self.visit(ctx.exp(1))
-
-        if ctx.operatorBitwise():
-            x = self.visit(ctx.exp(0))
-            y = self.visit(ctx.exp(1))
-            return "Number"
+            if x["type"] != "Number":
+                return {"type": "any", "data": ctx.getText()}
+            return {"type": "Number", "data": ctx.getText()}
 
     def visitNumber(self, ctx: LuaParser.NumberContext):
-        return "Number"
+        return {"type": "Number", "data": ctx.getText()}
 
     def visitString(self, ctx: LuaParser.StringContext):
-        return "String"
+        return {"type": "String", "data": ctx.getText()}
 
-    def visitTableconstructor(self, ctx: LuaParser.TableconstructorContext):
-        return "Table"
+    def visitPrefixexp(self, ctx: LuaParser.PrefixexpContext):
+        if ctx.nameAndArgs():
+            # is function call
+            # check if is a inbuilt call
+            if ctx.varOrExp().getText() in inbuilt_functions:
+                if ctx.nameAndArgs(0):
+                    argsLen = (len(ctx.nameAndArgs(0).args().explist().exp()))
+                    return {"type": getReturnType(ctx.varOrExp().getText(), argsLen)}
+        elif ctx.varOrExp():
+            # this should be checked first incase a local variable is shadowing a function
+            self.visit(ctx.varOrExp())
+        return {"type": "Any"}
 
-    # check and add all returns of type in a function
-    # what happens when it returns a nil
-
-    # check what happens when a variable is used
-    # expression parsing
+    # for now we ignore suffixes
+    def visitVar_(self, ctx: LuaParser.Var_Context):
+        return find_var(self.globals, self.current_func, str(ctx.NAME()))
 
 
-# This ignores . please fix
-def is_variable(listener: LuaTypesListener, varname, funcname):
-    if varname in listener.current_func:
-        return listener.current_func
-    elif varname in listener.globals:
-        return listener.globals[varname]
+def getReturnType(funcName, argsLen):
+    argsList = inbuilt_functions[funcName]["args"]
+    argsTable = {}
+    for arg in argsList:
+        argsTable[arg["argSize"]] = arg["type"]
+    if argsLen in argsTable:
+        return argsTable[argsLen]
+    return argsTable[-1]
 
 
-def find_or_add(globs, local, name, suffixes):
-    if name in local:
-        final = local[name]
-        for suffix in suffixes:
-            if suffix in final:
-                final = final[suffix]
+# for now we ignore suffixes
+def find_var(globs, curr_func, name):
+    if "locals" in curr_func:
+        local = curr_func["locals"]
+        if name in local:
+            if "additional" in local[name]:
+                return "Any"
             else:
-                final[suffix] = {}
-                final = final[suffix]
+                return local[name]["type"]
+    if name in globs:
+        if "additional" in globs[name]:
+            return "Any"
+        else:
+            return globs[name]["type"]
+    # throw error if not found anywhere
+    raise Exception("THE FUCK , ERROR VAR USED BUT NOT FOUND")
+
+
+# # This ignores . please fix
+# def is_variable(listener: LuaTypesListener, varname, funcname):
+#     if varname in listener.current_func:
+#         return listener.current_func
+#     elif varname in listener.globals:
+#         return listener.globals[varname]
+
+
+def find_or_add_global(globs, curr_func, name, addedType):
+    if "locals" in curr_func:
+        local = curr_func["locals"]
+        if name in local:
+            type = local[name]["type"]
+            if type != addedType["type"]:
+                globs[name]["additional"] = [addedType]
     elif name in globs:
-        final = globs[name]
-        for suffix in suffixes:
-            if suffix in final:
-                final = final[suffix]
-            else:
-                final[suffix] = {}
-                final = final[suffix]
+        type = globs[name]["type"]
+        if type != addedType["type"]:
+            globs[name]["additional"] = [addedType]
     else:
-        globs[name] = {}
-        final = globs[name]
-        for suffix in suffixes:
-            final[suffix] = {}
-            final = final[suffix]
-    pass
+        globs[name] = addedType
 
 
 def get_list(thing):
