@@ -5,10 +5,13 @@ def walk_stat_assignment(node):
     # for now
     exps = node.explist.exps
     vars = node.varlist.vars
+    vars_as_code = []
+    exps_as_code = []
     assert (len(vars) == len(exps))
     for exp, var in zip(exps, vars):
-        return walk_var_name(var) + " = " + walk_exp(exp)
-    print(node)
+        vars_as_code.append(walk_var_name(var))
+        exps_as_code.append(walk_exp(exp))
+    return ",".join(vars_as_code) + " = " + ",".join(exps_as_code)
 
 
 def walk_table_constructor(node):
@@ -23,8 +26,9 @@ def walk_table_constructor(node):
             case _:
                 raise NotImplementedError("Not implemented yet")
     list_half = f'[{",".join(list_half)}]'
-    dict_half = "{"+",".join([f"{i}={j}" for i,j in dict_half.items()])+"}"
+    dict_half = "{" + ",".join([f"{i}={j}" for i, j in dict_half.items()]) + "}"
     return 'Table(' + list_half + ',' + dict_half + ')'
+
 
 def walk_tok_name(node):
     return str(node.value)

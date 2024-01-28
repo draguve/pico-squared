@@ -15,7 +15,13 @@ join_test = {1,2,3,list=4}
 value_test = x
 weird_string = "█◆☉🅾️░∧…"
 weird_table = {█★⬇️=1,█웃★="fjsd"}
-
+deep = {{"daad",1},{123,231,false}}
+backslash_test = " \" "
+otherbackslash = ' \' '
+mix_test = " \' "
+mix2_test = ' \" '
+uber_mix = " \' \" "
+uber2_mix = ' \' \" '
 
 
 __gfx__
