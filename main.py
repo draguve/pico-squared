@@ -1,13 +1,19 @@
 import sys
 
+from Walker.BaseWalker import walk
 from picotool.pico8.game.file import from_file
 from picotool.pico8.tool import _printast_node
+
 
 
 def main(filename):
     g = from_file(filename)
     _printast_node(g.lua.root)
-    # print(g)
+    print("-"*100)
+    test = walk(g.lua.root)
+    print(test)
+    with open("temp.txt", "w") as binary_file:
+        binary_file.write(test)
 
 
 if __name__ == '__main__':

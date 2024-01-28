@@ -9,8 +9,12 @@ string_test = "string"
 string_test2 = 'string'
 no_data = nil
 list_test = {1,2,3,4,5,6}
+list_test2 = {"data","data1","data2"}
 dict_test = {list=2,thing=4,3}
 join_test = {1,2,3,list=4}
+value_test = x
+weird_string = "█◆☉🅾️░∧…"
+weird_table = {█★⬇️=1,█웃★="fjsd"}
 
 
 
