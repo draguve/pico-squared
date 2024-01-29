@@ -19,4 +19,5 @@ def main(filename):
 if __name__ == '__main__':
     # main(sys.argv[1])
     # main("demos-pico-8/comments.p8")
-    main("demos-pico-8/assignment.p8")
+    # main("demos-pico-8/assignment.p8")
+    main("demos-pico-8/simp_func.p8")

@@ -76,6 +76,29 @@ def walk_statement(node):
     match type(node).__name__:
         case "StatAssignment":
             return walk_stat_assignment(node)
+        case "StatFunctionCall":
+            return walk_stat_function_call(node)
+        case _:
+            raise NotImplementedError("Not implemented yet")
+
+
+def walk_stat_function_call(node):
+    function_name = walk_var_name(node.functioncall.exp_prefix)
+    args = walk_function_call_args(node.functioncall.args)
+    return f"{function_name}{args}"
+
+
+def walk_function_call_args(node):
+    match type(node).__name__:
+        case "TokString":
+            return f"({str(node.value)})"
+        case "FunctionArgs":
+            args = []
+            for exp in node.explist.exps:
+                args.append(walk_exp_value(exp))
+            return f"({','.join(args)})"
+        case "TableConstructor":
+            return f"({walk_table_constructor(node)})"
         case _:
             raise NotImplementedError("Not implemented yet")
 
