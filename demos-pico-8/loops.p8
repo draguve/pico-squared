@@ -5,6 +5,7 @@ while condition do
 end
 
 for i = 1,5 do
+    print(i)
 end
 
 for i = start,finish,delta do

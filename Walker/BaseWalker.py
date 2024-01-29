@@ -26,8 +26,8 @@ def walk_table_constructor(node, depth):
             case _:
                 raise NotImplementedError("Not implemented yet")
     list_half = f'[{",".join(list_half)}]'
-    dict_half = "{" + ",".join([f"{i}={j}" for i, j in dict_half.items()]) + "}"
-    return 'Table.Table(' + list_half + ',' + dict_half + ')'
+    dict_half = "{" + ",".join([f"b'{i}':{j}" for i, j in dict_half.items()]) + "}"
+    return 'Table(' + list_half + ',' + dict_half + ')'
 
 
 def walk_tok_name(node, depth):
@@ -99,9 +99,11 @@ def walk_exp_un_op(node, depth):
 
 
 def walk_exp_bin_op(node, depth):
-    op, spaces = get_bin_op(node.binop)
+    op, spaces,is_func = get_bin_op(node.binop)
     exp1 = walk_exp(node.exp1, depth)
     exp2 = walk_exp(node.exp2, depth)
+    if is_func:
+        return f"{op}({exp1},{exp2})"
     return f"({exp1}{' ' * spaces}{op}{' ' * spaces}{exp2})"
     # raise NotImplementedError("Not implemented yet")
 
@@ -118,18 +120,18 @@ def get_un_op(value):
 def get_bin_op(value):
     value = value.value.decode("utf-8")
     if value == "~=":
-        return "!=", 0
+        return "!=", 0, False
     elif value == "^^":
-        return "^", 0
+        return "^", 0, False
     elif value == "^":
-        return "**", 0
+        return "**", 0, False
     elif value == "\\":
-        return "//", 0
+        return "//", 0, False
     elif value == "..":
-        return "+", 0
+        return "PicoStrConcat", 0, True
     elif value == "and" or value == "or":
-        return value, 1
-    return value, 0
+        return value, 1, False
+    return value, 0, False
 
 
 def walk_statement(node, depth=0):
@@ -159,9 +161,10 @@ def walk_statement(node, depth=0):
 # def walk_stat_function(node, depth):
 #     chunk = walk_chunk(node.funcbody)
 
-def walk_stat_break(node,depth):
+def walk_stat_break(node, depth):
     assert type(node).__name__ == "StatBreak"
     return "break"
+
 
 def walk_stat_repeat(node, depth):
     code_chunk = walk_chunk(node.block, depth)
@@ -180,10 +183,10 @@ def walk_for_in_iter(function_call, depth):
     match function_name:
         case "pairs":
             assert len(function_call.args.explist.exps) == 1
-            return f"Table.ipairs{args}"
+            return f"ipairs{args}"
         case "all":
             assert len(function_call.args.explist.exps) == 1
-            return f"Table.iall{args}"
+            return f"iall{args}"
         case _:
             raise NotImplementedError("Not implemented yet")
 
@@ -199,11 +202,11 @@ def walk_stat_for_in(node, depth):
 def walk_stat_for_step(node, depth):
     code_inside = walk_chunk(node.block, depth + 1)
     # Todo fix this +1
-    range_args = [walk_exp(node.exp_init, depth), walk_exp(node.exp_end, depth) + "+1"]
+    range_args = [walk_exp(node.exp_init, depth), walk_exp(node.exp_end, depth)]
     variable_name = walk_tok_name(node.name, depth)
     if node.exp_step is not None:
         range_args.append(walk_exp(node.exp_step, depth))
-    return f"for {variable_name} in range({','.join(range_args)}):\n{code_inside}"
+    return f"for {variable_name} in pico_range({','.join(range_args)}):\n{code_inside}"
 
 
 def walk_stat_while(node, depth):
