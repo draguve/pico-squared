@@ -5,6 +5,9 @@ x = 10
 x,y = 10,12
 z = true
 a = false
+x = 10 | 12
+y = 11 & 10
+z = ~a
 string_test = "string"
 string_test2 = 'string'
 no_data = nil
@@ -23,6 +26,17 @@ mix2_test = ' \" '
 uber_mix = " \' \" "
 uber2_mix = ' \' \" '
 
+x = -a
+x = a+b
+x = a - b
+x = a * b
+x = a / b
+x = a \ b
+x = a % b
+x = a ^ b
+
+x = a..b
+x = #"data"
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
