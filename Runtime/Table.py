@@ -8,6 +8,28 @@ class Table:
         self.list = list_half
         self.length = len(list_half)
 
+    def __getitem__(self, item):
+        if isinstance(o, bytes):
+            return self.dict.get(item, None)
+        else:
+            idx = int(item)
+            if 1 <= idx <= len(self.list) + 1:
+                return self.list[idx - 1]
+            else:
+                return self.dict.get(item, None)
+
+    def __setitem__(self, key, value):
+        if isinstance(key, bytes):
+            self.dict[key] = value
+        else:
+            idx = int(key)
+            if idx == len(self.list) + 1:
+                self.list.append(value)
+                if key in self.dict:
+                    del self.dict[key]
+            else:
+                self.dict[key] = value
+
 
 def iall(table):
     for i in table.list:

@@ -21,5 +21,6 @@ if __name__ == '__main__':
     # main("demos-pico-8/assignment.p8")
     # main("demos-pico-8/simp_func.p8")
     # main("demos-pico-8/conditionals.p8")
-    main("demos-pico-8/loops.p8")
+    # main("demos-pico-8/loops.p8")
+    main("demos-pico-8/tables.p8")
     # main("demos-pico-8/funcs.p8")

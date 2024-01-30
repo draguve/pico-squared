@@ -9,7 +9,7 @@ def walk_stat_assignment(node, depth):
     exps_as_code = []
     assert (len(vars) == len(exps))
     for exp, var in zip(exps, vars):
-        vars_as_code.append(walk_var_name(var))
+        vars_as_code.append(walk_var(var, depth))
         exps_as_code.append(walk_exp(exp, depth))
     return ",".join(vars_as_code) + " = " + ",".join(exps_as_code)
 
@@ -22,11 +22,13 @@ def walk_table_constructor(node, depth):
             case "FieldExp":
                 list_half.append(walk_exp(field.exp, depth))
             case "FieldNamedKey":
-                dict_half[walk_tok_name(field.key_name, depth)] = walk_exp(field.exp, depth)
+                dict_half[f"b'{walk_tok_name(field.key_name, depth)}'"] = walk_exp(field.exp, depth)
+            case "FieldExpKey":
+                dict_half[walk_exp(field.key_exp, depth)] = walk_exp(field.exp, depth)
             case _:
                 raise NotImplementedError("Not implemented yet")
     list_half = f'[{",".join(list_half)}]'
-    dict_half = "{" + ",".join([f"b'{i}':{j}" for i, j in dict_half.items()]) + "}"
+    dict_half = "{" + ",".join([f"{i}:{j}" for i, j in dict_half.items()]) + "}"
     return 'Table(' + list_half + ',' + dict_half + ')'
 
 
@@ -49,6 +51,10 @@ def walk_exp_value(node, depth):
             return walk_table_constructor(node.value, depth)
         case "VarName":
             return walk_var_name(node.value)
+        case "VarAttribute":
+            return walk_var_attribute(node.value, depth)
+        case "VarIndex":
+            return walk_var_index(node.value, depth)
         case "ExpBinOp":
             return walk_exp(node.value, depth)
         case "FunctionCall":
@@ -75,6 +81,31 @@ def walk_exp(node, depth):
             raise NotImplementedError("Not implemented yet")
 
 
+def walk_var(node, depth):
+    match type(node).__name__:
+        case "VarName":
+            return walk_var_name(node)
+        case "VarAttribute":
+            return walk_var_attribute(node, depth)
+        case "VarIndex":
+            return walk_var_index(node, depth)
+        case _:
+            raise NotImplementedError("Not implemented yet")
+
+
+def walk_var_index(node, depth):
+    prefix = walk_var(node.exp_prefix, depth)
+    index_exp = walk_exp(node.exp_index, depth)
+    return f"{prefix}[{index_exp}]"
+
+
+def walk_var_attribute(node, depth):
+    assert (type(node).__name__ == "VarAttribute")
+    prefix = walk_var(node.exp_prefix, depth)
+    attr_name = walk_tok_name(node.attr_name, depth)
+    return f"{prefix}[b'{attr_name}']"
+
+
 def walk_var_name(node):
     assert (type(node).__name__ == "VarName")
     return node.name.value.decode("utf-8")
@@ -99,7 +130,7 @@ def walk_exp_un_op(node, depth):
 
 
 def walk_exp_bin_op(node, depth):
-    op, spaces,is_func = get_bin_op(node.binop)
+    op, spaces, is_func = get_bin_op(node.binop)
     exp1 = walk_exp(node.exp1, depth)
     exp2 = walk_exp(node.exp2, depth)
     if is_func:
@@ -179,7 +210,7 @@ def walk_stat_repeat(node, depth):
 
 def walk_for_in_iter(function_call, depth):
     args = walk_function_call_args(function_call.args, depth)
-    function_name = walk_var_name(function_call.exp_prefix)
+    function_name = walk_var(function_call.exp_prefix)
     match function_name:
         case "pairs":
             assert len(function_call.args.explist.exps) == 1
