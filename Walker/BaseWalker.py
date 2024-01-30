@@ -1,5 +1,6 @@
 from picotool.pico8.lua.parser import *
 from dataclasses import dataclass, InitVar, field
+from Util import get_random_string
 
 
 @dataclass
@@ -126,14 +127,17 @@ def walk_exp_value(node, depth):
             return walk_exp(node.value, depth)
         case "FunctionCall":
             return walk_function_call(node.value, depth)
-        # case "Function":
-        #     return walk_function_body(node.funcbody, depth)
+        case "Function":
+            return walk_function(node.value, depth)
         case _:
             raise NotImplementedError("Not implemented yet")
 
 
-# def walk_function_body(node, depth):
-#     pass
+# when passed as value
+def walk_function(node, depth):
+    func_name = f"anon_{get_random_string(10)}"
+    func_body = walk_func_body(node.funcbody, depth)
+    return ParserReturn(func_name, [f"def {func_name}{func_body.line}"])
 
 
 def walk_exp(node, depth):
@@ -181,7 +185,12 @@ def walk_var_name(node):
 def walk_chunk(node, depth=0):
     lines = []
     for statement in node.stats:
-        lines.append(walk_statement(statement, depth=depth))
+        statement = walk_statement(statement, depth=depth)
+        if statement.prev_lines is not None:
+            for prev_line in statement.prev_lines:
+                lines.append(ParserReturn(prev_line))
+            statement.prev_lines = []
+        lines.append(statement)
     if len(lines) == 0:
         lines.append(ParserReturn("pass"))
     lines_text = [f"{'    ' * depth}{line.line}" for line in lines]
