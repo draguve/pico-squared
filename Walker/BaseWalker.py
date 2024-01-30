@@ -1,17 +1,56 @@
 from picotool.pico8.lua.parser import *
+from dataclasses import dataclass
+
+
+@dataclass
+class ParserReturn:
+    this_line: str
+    prev_line: str = None
+
+
+def walk(node, depth):
+    match type(node).__name__:
+        case "Chunk":
+            return walk_chunk(node)
+        case "StatAssignment":
+            return walk_stat_assignment(node, depth)
+        case _:
+            raise NotImplementedError("Not implemented yet")
+
+
+def walk_statement(node, depth=0):
+    match type(node).__name__:
+        case "StatAssignment":
+            return walk_stat_assignment(node, depth)
+        case "StatFunctionCall":
+            return walk_stat_function_call(node, depth)
+        case "StatIf":
+            return walk_stat_if(node, depth)
+        case "StatFunction":
+            return walk_stat_function(node, depth)
+        case "StatWhile":
+            return walk_stat_while(node, depth)
+        case "StatForStep":
+            return walk_stat_for_step(node, depth)
+        case "StatForIn":
+            return walk_stat_for_in(node, depth)
+        case "StatRepeat":
+            return walk_stat_repeat(node, depth)
+        case "StatBreak":
+            return walk_stat_break(node, depth)
+        case "StatReturn":
+            return walk_stat_return(node, depth)
+        case "StatLocalAssignment":
+            return walk_stat_local_assignment(node, depth)
+        case _:
+            raise NotImplementedError("Not implemented yet")
 
 
 def walk_stat_assignment(node, depth):
-    # for now
-    exps = node.explist.exps
-    vars = node.varlist.vars
-    vars_as_code = []
-    exps_as_code = []
+    vars = [walk_var(var, depth) for var in node.varlist.vars]
+    exps = [walk_exp(exp, depth) for exp in node.explist.exps]
     assert (len(vars) == len(exps))
-    for exp, var in zip(exps, vars):
-        vars_as_code.append(walk_var(var, depth))
-        exps_as_code.append(walk_exp(exp, depth))
-    return ",".join(vars_as_code) + " = " + ",".join(exps_as_code)
+    return ",".join(vars) + " = " + ",".join(exps)
 
 
 def walk_table_constructor(node, depth):
@@ -34,7 +73,7 @@ def walk_table_constructor(node, depth):
 
 def walk_tok_name(node, depth):
     assert (type(node).__name__ == "TokName")
-    return node.value.decode("utf-8")
+    return str(node.value)[2:-1]
 
 
 def walk_exp_value(node, depth):
@@ -165,34 +204,6 @@ def get_bin_op(value):
     return value, 0, False
 
 
-def walk_statement(node, depth=0):
-    match type(node).__name__:
-        case "StatAssignment":
-            return walk_stat_assignment(node, depth)
-        case "StatFunctionCall":
-            return walk_stat_function_call(node, depth)
-        case "StatIf":
-            return walk_stat_if(node, depth)
-        case "StatFunction":
-            return walk_stat_function(node, depth)
-        case "StatWhile":
-            return walk_stat_while(node, depth)
-        case "StatForStep":
-            return walk_stat_for_step(node, depth)
-        case "StatForIn":
-            return walk_stat_for_in(node, depth)
-        case "StatRepeat":
-            return walk_stat_repeat(node, depth)
-        case "StatBreak":
-            return walk_stat_break(node, depth)
-        case "StatReturn":
-            return walk_stat_return(node, depth)
-        case "StatLocalAssignment":
-            return walk_stat_local_assignment(node, depth)
-        case _:
-            raise NotImplementedError("Not implemented yet")
-
-
 def walk_stat_local_assignment(node, depth):
     # for now
     exps = [walk_exp(exp, depth) for exp in node.explist.exps]
@@ -240,7 +251,7 @@ def walk_stat_repeat(node, depth):
 
 def walk_for_in_iter(function_call, depth):
     args = walk_function_call_args(function_call.args, depth)
-    function_name = walk_var(function_call.exp_prefix)
+    function_name = walk_var(function_call.exp_prefix, depth)
     match function_name:
         case "pairs":
             assert len(function_call.args.explist.exps) == 1
@@ -320,15 +331,5 @@ def walk_function_call_args(node, depth):
             return f"({','.join(args)})"
         case "TableConstructor":
             return f"({walk_table_constructor(node, depth)})"
-        case _:
-            raise NotImplementedError("Not implemented yet")
-
-
-def walk(node, depth):
-    match type(node).__name__:
-        case "Chunk":
-            return walk_chunk(node)
-        case "StatAssignment":
-            return walk_stat_assignment(node, depth)
         case _:
             raise NotImplementedError("Not implemented yet")
