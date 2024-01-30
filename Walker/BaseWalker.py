@@ -173,8 +173,8 @@ def walk_statement(node, depth=0):
             return walk_stat_function_call(node, depth)
         case "StatIf":
             return walk_stat_if(node, depth)
-        # case "StatFunction":
-        #     return walk_stat_function(node,depth)
+        case "StatFunction":
+            return walk_stat_function(node, depth)
         case "StatWhile":
             return walk_stat_while(node, depth)
         case "StatForStep":
@@ -185,12 +185,42 @@ def walk_statement(node, depth=0):
             return walk_stat_repeat(node, depth)
         case "StatBreak":
             return walk_stat_break(node, depth)
+        case "StatReturn":
+            return walk_stat_return(node, depth)
+        case "StatLocalAssignment":
+            return walk_stat_local_assignment(node, depth)
         case _:
             raise NotImplementedError("Not implemented yet")
 
 
-# def walk_stat_function(node, depth):
-#     chunk = walk_chunk(node.funcbody)
+def walk_stat_local_assignment(node, depth):
+    # for now
+    exps = [walk_exp(exp, depth) for exp in node.explist.exps]
+    names = [walk_tok_name(name, depth) for name in node.namelist.names]
+    assert (len(exps) == len(names))
+    return ",".join(names) + " = " + ",".join(exps)
+
+
+def walk_stat_return(node, depth):
+    return_val = []
+    if node.explist is not None:
+        return_val = [walk_exp(exp, depth) for exp in node.explist.exps]
+    return f"return {','.join(return_val)}".strip()
+
+
+def walk_stat_function(node, depth):
+    func_body = walk_func_body(node.funcbody, depth)
+    name_path = [walk_tok_name(name, depth) for name in node.funcname.namepath]
+    return f"def {'.'.join(name_path)}{func_body}\n"
+
+
+def walk_func_body(node, depth):
+    code = walk_chunk(node.block, depth + 1)
+    parameter_list = []
+    if node.parlist is not None:
+        parameter_list = [walk_tok_name(name, depth) for name in node.parlist.names]
+    return f"({','.join(parameter_list)}):\n{code}"
+
 
 def walk_stat_break(node, depth):
     assert type(node).__name__ == "StatBreak"
@@ -286,8 +316,7 @@ def walk_function_call_args(node, depth):
         case "FunctionArgs":
             args = []
             if node.explist is not None:
-                for exp in node.explist.exps:
-                    args.append(walk_exp(exp, depth))
+                args = [walk_exp(exp, depth) for exp in node.explist.exps]
             return f"({','.join(args)})"
         case "TableConstructor":
             return f"({walk_table_constructor(node, depth)})"

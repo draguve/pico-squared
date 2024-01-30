@@ -3,14 +3,21 @@ version 41
 __lua__
 player_pos = {20, 60}
 
-anonymousfunctions(function()
-  print(x)
-end)
-
-foreach(x, function(v) print(v^2) end)
+function get_pos()
+    print("12")
+end
 
 function move_player(newx, newy)
   player_pos = {newx, newy}
+end
+
+function draguve(x)
+	if(x==0) then
+		print("test_a")
+		return
+	end
+	print("test")
+	return 0
 end
 
 function distance(x1, y1, x2, y2)
@@ -22,7 +29,13 @@ function circumference(r)
   local pi = 3.14
   return 2 * pi * r
 end
+--[[
+anonymousfunctions(function()
+  print(x)
+end)
 
+foreach(x, function(v) print(v^2) end)
+]]--
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
