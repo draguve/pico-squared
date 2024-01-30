@@ -1,19 +1,37 @@
 from picotool.pico8.lua.parser import *
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar, field
 
 
 @dataclass
 class ParserReturn:
-    this_line: str
-    prev_line: str = None
+    line: str
+    prev_lines: list[str] = field(default_factory=list)
+    old: InitVar[object | None] = None
+
+    def __post_init__(self, old):
+        if old is not None:
+            self.prev_lines = old.prev_lines
+
+
+def combine_rest(*returns):
+    prev_lines = []
+    for arg in returns:
+        prev_lines.extend(arg.prev_lines)
+    return ParserReturn("", prev_lines)
+
+
+def parser_return_lines(arr: list[ParserReturn]):
+    return [i.line for i in arr]
 
 
 def walk(node, depth):
     match type(node).__name__:
         case "Chunk":
-            return walk_chunk(node)
-        case "StatAssignment":
-            return walk_stat_assignment(node, depth)
+            chunk = walk_chunk(node)
+            assert len(chunk.prev_lines) == 0
+            return chunk.line
+        # case "StatAssignment":
+        #     return walk_stat_assignment(node, depth)
         case _:
             raise NotImplementedError("Not implemented yet")
 
@@ -50,42 +68,52 @@ def walk_stat_assignment(node, depth):
     vars = [walk_var(var, depth) for var in node.varlist.vars]
     exps = [walk_exp(exp, depth) for exp in node.explist.exps]
     assert (len(vars) == len(exps))
-    return ",".join(vars) + " = " + ",".join(exps)
+    return ParserReturn(",".join([var.line for var in vars]) + " = " + ",".join([exp.line for exp in exps]),
+                        old=combine_rest(*vars, *exps))
 
 
 def walk_table_constructor(node, depth):
     list_half = []
     dict_half = {}
+    old = ParserReturn("")
     for field in node.fields:
         match type(field).__name__:
             case "FieldExp":
-                list_half.append(walk_exp(field.exp, depth))
+                exp = walk_exp(field.exp, depth)
+                old = combine_rest(old, exp)
+                list_half.append(exp.line)
             case "FieldNamedKey":
-                dict_half[f"b'{walk_tok_name(field.key_name, depth)}'"] = walk_exp(field.exp, depth)
+                name = walk_tok_name(field.key_name, depth)
+                exp = walk_exp(field.exp, depth)
+                old = combine_rest(old, name, exp)
+                dict_half[f"b'{name.line}'"] = exp.line
             case "FieldExpKey":
-                dict_half[walk_exp(field.key_exp, depth)] = walk_exp(field.exp, depth)
+                key_exp = walk_exp(field.key_exp, depth)
+                value_exp = walk_exp(field.exp, depth)
+                old = combine_rest(old, key_exp, value_exp)
+                dict_half[key_exp.line] = value_exp.line
             case _:
                 raise NotImplementedError("Not implemented yet")
     list_half = f'[{",".join(list_half)}]'
     dict_half = "{" + ",".join([f"{i}:{j}" for i, j in dict_half.items()]) + "}"
-    return 'Table(' + list_half + ',' + dict_half + ')'
+    return ParserReturn('Table(' + list_half + ',' + dict_half + ')', old=old)
 
 
 def walk_tok_name(node, depth):
     assert (type(node).__name__ == "TokName")
-    return str(node.value)[2:-1]
+    return ParserReturn(str(node.value)[2:-1])
 
 
 def walk_exp_value(node, depth):
     match type(node.value).__name__:
         case "TokNumber":
-            return str(node.value.value)
+            return ParserReturn(str(node.value.value))
         case "TokString":
-            return str(node.value.value)
+            return ParserReturn(str(node.value.value))
         case "bool":
-            return str(node.value)
+            return ParserReturn(str(node.value))
         case "NoneType":
-            return str(node.value)
+            return ParserReturn(str(node.value))
         case "TableConstructor":
             return walk_table_constructor(node.value, depth)
         case "VarName":
@@ -135,19 +163,19 @@ def walk_var(node, depth):
 def walk_var_index(node, depth):
     prefix = walk_var(node.exp_prefix, depth)
     index_exp = walk_exp(node.exp_index, depth)
-    return f"{prefix}[{index_exp}]"
+    return ParserReturn(f"{prefix.line}[{index_exp.line}]", old=combine_rest(prefix, index_exp))
 
 
 def walk_var_attribute(node, depth):
     assert (type(node).__name__ == "VarAttribute")
     prefix = walk_var(node.exp_prefix, depth)
     attr_name = walk_tok_name(node.attr_name, depth)
-    return f"{prefix}[b'{attr_name}']"
+    return ParserReturn(f"{prefix.line}[b'{attr_name.line}']", old=combine_rest(prefix, attr_name))
 
 
 def walk_var_name(node):
     assert (type(node).__name__ == "VarName")
-    return node.name.value.decode("utf-8")
+    return ParserReturn(node.name.value.decode("utf-8"))
 
 
 def walk_chunk(node, depth=0):
@@ -155,17 +183,17 @@ def walk_chunk(node, depth=0):
     for statement in node.stats:
         lines.append(walk_statement(statement, depth=depth))
     if len(lines) == 0:
-        lines.append("pass")
-    lines = [f"{'    ' * depth}{line}" for line in lines]
-    return "\n".join(lines)
+        lines.append(ParserReturn("pass"))
+    lines_text = [f"{'    ' * depth}{line.line}" for line in lines]
+    return ParserReturn("\n".join(lines_text), old=combine_rest(*lines))
 
 
 def walk_exp_un_op(node, depth):
     op, spaces, is_func = get_un_op(node.unop)
     exp = walk_exp(node.exp, depth)
     if is_func:
-        return f"{op}({exp})"
-    return f"{op}{' ' * spaces}{exp}"
+        return ParserReturn(f"{op}({exp.line})", old=exp)
+    return ParserReturn(f"{op}{' ' * spaces}{exp.line}", old=exp)
 
 
 def walk_exp_bin_op(node, depth):
@@ -173,8 +201,8 @@ def walk_exp_bin_op(node, depth):
     exp1 = walk_exp(node.exp1, depth)
     exp2 = walk_exp(node.exp2, depth)
     if is_func:
-        return f"{op}({exp1},{exp2})"
-    return f"({exp1}{' ' * spaces}{op}{' ' * spaces}{exp2})"
+        return ParserReturn(f"{op}({exp1.line},{exp2.line})", old=combine_rest(exp1, exp2))
+    return ParserReturn(f"({exp1.line}{' ' * spaces}{op}{' ' * spaces}{exp2.line})", old=combine_rest(exp1, exp2))
     # raise NotImplementedError("Not implemented yet")
 
 
@@ -209,20 +237,22 @@ def walk_stat_local_assignment(node, depth):
     exps = [walk_exp(exp, depth) for exp in node.explist.exps]
     names = [walk_tok_name(name, depth) for name in node.namelist.names]
     assert (len(exps) == len(names))
-    return ",".join(names) + " = " + ",".join(exps)
+    return ParserReturn(",".join(parser_return_lines(names)) + " = " + ",".join(parser_return_lines(exps)),
+                        old=combine_rest(*exps, *names))
 
 
 def walk_stat_return(node, depth):
     return_val = []
     if node.explist is not None:
         return_val = [walk_exp(exp, depth) for exp in node.explist.exps]
-    return f"return {','.join(return_val)}".strip()
+    return ParserReturn(f"return {','.join(parser_return_lines(return_val))}".strip(), old=combine_rest(*return_val))
 
 
 def walk_stat_function(node, depth):
     func_body = walk_func_body(node.funcbody, depth)
     name_path = [walk_tok_name(name, depth) for name in node.funcname.namepath]
-    return f"def {'.'.join(name_path)}{func_body}\n"
+    return ParserReturn(f"def {'.'.join(parser_return_lines(name_path))}{func_body.line}",
+                        old=combine_rest(*name_path, func_body))
 
 
 def walk_func_body(node, depth):
@@ -230,12 +260,13 @@ def walk_func_body(node, depth):
     parameter_list = []
     if node.parlist is not None:
         parameter_list = [walk_tok_name(name, depth) for name in node.parlist.names]
-    return f"({','.join(parameter_list)}):\n{code}"
+    return ParserReturn(f"({','.join(parser_return_lines(parameter_list))}):\n{code.line}",
+                        old=combine_rest(*parameter_list, code))
 
 
 def walk_stat_break(node, depth):
     assert type(node).__name__ == "StatBreak"
-    return "break"
+    return ParserReturn("break")
 
 
 def walk_stat_repeat(node, depth):
@@ -244,21 +275,22 @@ def walk_stat_repeat(node, depth):
     code_chunk_inside = walk_chunk(node.block, depth + 1)
     condition = walk_exp(node.exp, depth)
     code_inside = walk_chunk(node.block, depth + 1)
-    if code_chunk.strip() == "pass":
-        return f"while {condition}:\n{code_inside}"
-    return f"{code_chunk}\nwhile {condition}:\n{code_chunk_inside}"
+    if code_chunk.line.strip() == "pass":
+        return ParserReturn(f"while {condition.line}:\n{code_inside.line}", old=combine_rest(condition, code_inside))
+    return ParserReturn(f"{code_chunk.line}\nwhile {condition.line}:\n{code_chunk_inside.line}",
+                        old=combine_rest(code_chunk, condition))
 
 
 def walk_for_in_iter(function_call, depth):
     args = walk_function_call_args(function_call.args, depth)
     function_name = walk_var(function_call.exp_prefix, depth)
-    match function_name:
+    match function_name.line:
         case "pairs":
             assert len(function_call.args.explist.exps) == 1
-            return f"ipairs{args}"
+            return ParserReturn(f"ipairs{args.line}", old=combine_rest(args, function_name))
         case "all":
             assert len(function_call.args.explist.exps) == 1
-            return f"iall{args}"
+            return ParserReturn(f"iall{args.line}", old=combine_rest(args, function_name))
         case _:
             raise NotImplementedError("Not implemented yet")
 
@@ -268,7 +300,8 @@ def walk_stat_for_in(node, depth):
     name_list = [walk_tok_name(name, depth) for name in node.namelist.names]
     assert len(node.explist.exps) == 1
     iter_call = walk_for_in_iter(node.explist.exps[0].value, depth)
-    return f"for {','.join(name_list)} in {iter_call}:\n{code_inside}"
+    return ParserReturn(f"for {','.join(parser_return_lines(name_list))} in {iter_call.line}:\n{code_inside.line}",
+                        old=combine_rest(code_inside, *name_list, iter_call))
 
 
 def walk_stat_for_step(node, depth):
@@ -278,13 +311,15 @@ def walk_stat_for_step(node, depth):
     variable_name = walk_tok_name(node.name, depth)
     if node.exp_step is not None:
         range_args.append(walk_exp(node.exp_step, depth))
-    return f"for {variable_name} in pico_range({','.join(range_args)}):\n{code_inside}"
+    return ParserReturn(
+        f"for {variable_name.line} in pico_range({','.join(parser_return_lines(range_args))}):\n{code_inside.line}",
+        old=combine_rest(variable_name, *range_args, code_inside))
 
 
 def walk_stat_while(node, depth):
     condition = walk_exp(node.exp, depth)
     code_inside = walk_chunk(node.block, depth + 1)
-    return f"while {condition}:\n{code_inside}"
+    return ParserReturn(f"while {condition.line}:\n{code_inside.line}", old=combine_rest(condition, code_inside))
 
 
 def walk_stat_if(node, depth):
@@ -292,22 +327,25 @@ def walk_stat_if(node, depth):
     code = []
     first = True
     final = ""
+    old = ParserReturn("")
     for cond, chunk in node.exp_block_pairs:
         chunk_out = walk_chunk(chunk, depth + 1)
-
         condition = None
         if cond is not None:
             condition = walk_exp(cond, depth)
         if first:
             assert condition is not None
-            final += f"if {condition}:\n{chunk_out}\n"
+            final += f"if {condition.line}:\n{chunk_out.line}"
+            old = combine_rest(old, condition, chunk_out)
             first = False
             continue
         elif condition is None:
-            final += f"else:\n{chunk_out}\n"
+            final += f"else:\n{chunk_out.line}"
+            old = combine_rest(old, chunk_out)
         else:
-            final += f"elif {condition}:\n{chunk_out}\n"
-    return final
+            final += f"elif {condition.line}:\n{chunk_out.line}"
+            old = combine_rest(old, condition, chunk_out)
+    return ParserReturn(final, old=old)
 
 
 def walk_stat_function_call(node, depth):
@@ -317,19 +355,20 @@ def walk_stat_function_call(node, depth):
 def walk_function_call(node, depth):
     function_name = walk_var_name(node.exp_prefix)
     args = walk_function_call_args(node.args, depth)
-    return f"{function_name}{args}"
+    return ParserReturn(f"{function_name.line}{args.line}", old=combine_rest(function_name, args))
 
 
 def walk_function_call_args(node, depth):
     match type(node).__name__:
         case "TokString":
-            return f"({str(node.value)})"
+            return ParserReturn(f"({str(node.value)})")
         case "FunctionArgs":
             args = []
             if node.explist is not None:
                 args = [walk_exp(exp, depth) for exp in node.explist.exps]
-            return f"({','.join(args)})"
+            return ParserReturn(f"({','.join(parser_return_lines(args))})", old=combine_rest(*args))
         case "TableConstructor":
-            return f"({walk_table_constructor(node, depth)})"
+            table = walk_table_constructor(node, depth)
+            return ParserReturn(f"({table.line})", old=table)
         case _:
             raise NotImplementedError("Not implemented yet")

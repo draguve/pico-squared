@@ -1,5 +1,5 @@
 import sys
-
+from black import format_str, FileMode
 from Walker.BaseWalker import walk
 from picotool.pico8.game.file import from_file
 from picotool.pico8.tool import _printast_node
@@ -10,6 +10,9 @@ def main(filename):
     _printast_node(g.lua.root)
     print("-" * 100)
     test = walk(g.lua.root, 0)
+    print(test)
+    print("-" * 100)
+    test = format_str(test, mode=FileMode())
     print(test)
     with open("temp.txt", "w") as binary_file:
         binary_file.write(test)
