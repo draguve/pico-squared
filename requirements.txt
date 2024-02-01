@@ -1,0 +1,11 @@
+antlr4-python3-runtime==4.13.1
+black==24.1.1
+click==8.1.7
+colorama==0.4.6
+h5py==3.9.0
+mypy-extensions==1.0.0
+p8tool @ file:///C:/Users/ritwi/Github/pico-squared/picotool
+packaging==23.2
+pathspec==0.12.1
+platformdirs==4.1.0
+pypng==0.20220715.0
