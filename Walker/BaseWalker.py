@@ -69,8 +69,17 @@ def walk_stat_assignment(node, depth):
     vars = [walk_var(var, depth) for var in node.varlist.vars]
     exps = [walk_exp(exp, depth) for exp in node.explist.exps]
     assert (len(vars) == len(exps))
-    return ParserReturn(",".join([var.line for var in vars]) + " = " + ",".join([exp.line for exp in exps]),
-                        old=combine_rest(*vars, *exps))
+    assignop = node.assignop.value.decode("utf-8")
+    if assignop == "=":
+        return ParserReturn(",".join([var.line for var in vars]) + " = " + ",".join([exp.line for exp in exps]),
+                            old=combine_rest(*vars, *exps))
+    else:
+        assert (len(vars) == 1)
+        exp1, exp2 = vars[0], exps[0]
+        op, spaces, is_func = _get_bin_op(assignop.replace("=", ""))
+        if is_func:
+            return ParserReturn(f"{exp1.line} = {op}({exp1.line},{exp2.line})", old=combine_rest(exp1, exp2))
+        return ParserReturn(f"{exp1.line} = ({exp1.line}{' ' * spaces}{op}{' ' * spaces}{exp2.line})", old=combine_rest(exp1, exp2))
 
 
 def walk_table_constructor(node, depth):
@@ -226,19 +235,33 @@ def get_un_op(value):
 
 def get_bin_op(value):
     value = value.value.decode("utf-8")
-    if value == "~=":
-        return "!=", 0, False
-    elif value == "^^":
-        return "^", 0, False
-    elif value == "^":
-        return "**", 0, False
-    elif value == "\\":
-        return "//", 0, False
-    elif value == "..":
-        return "PicoStrConcat", 0, True
-    elif value == "and" or value == "or":
-        return value, 1, False
-    return value, 0, False
+    return _get_bin_op(value)
+
+
+def _get_bin_op(value):
+    match value:
+        case  "~=":
+            return "!=", 0, False
+        case "^^":
+            return "^", 0, False
+        case "^":
+            return "**", 0, False
+        case "\\":
+            return "//", 0, False
+        case "..":
+            return "PicoStrConcat", 0, True
+        case "and":
+            return value, 1, False
+        case "or":
+            return value, 1, False
+        case ">>>":
+            return "PicoNumber.lsr", 0, True
+        case "<<>":
+            return "PicoNumber.rotl", 0, True
+        case ">><":
+            return "PicoNumber.rotr", 0, True
+        case _:
+            return value, 0, False
 
 
 def walk_stat_local_assignment(node, depth):

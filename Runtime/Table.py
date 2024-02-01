@@ -6,7 +6,6 @@ class Table:
             list_half = []
         self.dict = dict_half
         self.list = list_half
-        self.length = len(list_half)
 
     def __getitem__(self, item):
         if isinstance(o, bytes):
