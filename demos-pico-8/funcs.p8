@@ -30,6 +30,15 @@ function circumference(r)
   return 2 * pi * r
 end
 
+function data()
+    local thng,pi
+    if pi==0 then
+        thng=10
+    else
+        thng=5
+    end
+end
+
 foreach(x, function(v) print(v^2) end)
 
 anonymousfunctions(function(x)

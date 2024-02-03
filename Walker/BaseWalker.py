@@ -1,34 +1,59 @@
 from picotool.pico8.lua.parser import *
 from dataclasses import dataclass, InitVar, field
-from Util import get_random_string
+from Util import get_random_string,clamp
 
 
 @dataclass
 class ParserReturn:
     line: str
     prev_lines: list[str] = field(default_factory=list)
+    variables: set = field(default_factory=set)
+    function_defs: set = field(default_factory=set)
+    function_calls: set = field(default_factory=set)
+    locals: set = field(default_factory=set)
     old: InitVar[object | None] = None
 
     def __post_init__(self, old):
         if old is not None:
+            old.prev_lines.extend(self.prev_lines)
             self.prev_lines = old.prev_lines
+            self.variables = old.variables.union(self.variables)
+            self.function_defs = old.function_defs.union(self.function_defs)
+            self.function_calls = old.function_calls.union(self.function_calls)
+            self.locals = old.locals.union(self.locals)
 
 
 def combine_rest(*returns):
     prev_lines = []
+    prev_variables = set()
+    prev_funcs = set()
+    prev_calls = set()
+    prev_locals = set()
     for arg in returns:
         prev_lines.extend(arg.prev_lines)
-    return ParserReturn("", prev_lines)
+        prev_variables = prev_variables.union(arg.variables)
+        prev_funcs = prev_funcs.union(arg.function_defs)
+        prev_calls = prev_calls.union(arg.function_calls)
+        prev_locals = prev_locals.union(arg.locals)
+    return ParserReturn("", prev_lines=prev_lines, variables=prev_variables, function_defs=prev_funcs,
+                        function_calls=prev_calls, locals=prev_locals)
 
 
 def parser_return_lines(arr: list[ParserReturn]):
     return [i.line for i in arr]
 
 
+def get_all_set_variables(arr: list[ParserReturn]):
+    to_return = set()
+    for parser in arr:
+        to_return = to_return.union(parser.variables)
+    return to_return
+
+
 def walk(node, depth):
     match type(node).__name__:
         case "Chunk":
-            chunk = walk_chunk(node)
+            chunk = walk_chunk(node, declare_globals=False,is_global=True)
             assert len(chunk.prev_lines) == 0
             return chunk.line
         # case "StatAssignment":
@@ -79,27 +104,28 @@ def walk_stat_assignment(node, depth):
         op, spaces, is_func = _get_bin_op(assignop.replace("=", ""))
         if is_func:
             return ParserReturn(f"{exp1.line} = {op}({exp1.line},{exp2.line})", old=combine_rest(exp1, exp2))
-        return ParserReturn(f"{exp1.line} = ({exp1.line}{' ' * spaces}{op}{' ' * spaces}{exp2.line})", old=combine_rest(exp1, exp2))
+        return ParserReturn(f"{exp1.line} = ({exp1.line}{' ' * spaces}{op}{' ' * spaces}{exp2.line})",
+                            old=combine_rest(exp1, exp2))
 
 
 def walk_table_constructor(node, depth):
     list_half = []
     dict_half = {}
     old = ParserReturn("")
-    for field in node.fields:
-        match type(field).__name__:
+    for node_field in node.fields:
+        match type(node_field).__name__:
             case "FieldExp":
-                exp = walk_exp(field.exp, depth)
+                exp = walk_exp(node_field.exp, depth)
                 old = combine_rest(old, exp)
                 list_half.append(exp.line)
             case "FieldNamedKey":
-                name = walk_tok_name(field.key_name, depth)
-                exp = walk_exp(field.exp, depth)
+                name = walk_tok_name(node_field.key_name, depth)
+                exp = walk_exp(node_field.exp, depth)
                 old = combine_rest(old, name, exp)
                 dict_half[f"b'{name.line}'"] = exp.line
             case "FieldExpKey":
-                key_exp = walk_exp(field.key_exp, depth)
-                value_exp = walk_exp(field.exp, depth)
+                key_exp = walk_exp(node_field.key_exp, depth)
+                value_exp = walk_exp(node_field.exp, depth)
                 old = combine_rest(old, key_exp, value_exp)
                 dict_half[key_exp.line] = value_exp.line
             case _:
@@ -146,7 +172,7 @@ def walk_exp_value(node, depth):
 def walk_function(node, depth):
     func_name = f"anon_{get_random_string(10)}"
     func_body = walk_func_body(node.funcbody, depth)
-    return ParserReturn(func_name, [f"def {func_name}{func_body.line}"])
+    return ParserReturn(func_name, [f"def {func_name}{func_body.line}"], function_defs={func_name, })
 
 
 def walk_exp(node, depth):
@@ -188,22 +214,36 @@ def walk_var_attribute(node, depth):
 
 def walk_var_name(node):
     assert (type(node).__name__ == "VarName")
-    return ParserReturn(node.name.value.decode("utf-8"))
+    variableName = node.name.value.decode("utf-8")
+    return ParserReturn(variableName, variables={variableName, })
 
 
-def walk_chunk(node, depth=0):
+def walk_chunk(node, depth=0, declare_globals=True, params=None, is_global=False):
     lines = []
-    for statement in node.stats:
-        statement = walk_statement(statement, depth=depth)
+    if params is None:
+        params = set()
+    if declare_globals:
+        pass
+    statements = [walk_statement(statement, depth=depth) for statement in node.stats]
+    for statement in statements:
         if statement.prev_lines is not None:
             for prev_line in statement.prev_lines:
-                lines.append(ParserReturn(prev_line))
+                lines.extend([ParserReturn(stat) for stat in prev_line.split('\n')])
             statement.prev_lines = []
-        lines.append(statement)
+        lines.extend([ParserReturn(stat) for stat in statement.line.split('\n')])
     if len(lines) == 0:
         lines.append(ParserReturn("pass"))
-    lines_text = [f"{'    ' * depth}{line.line}" for line in lines]
-    return ParserReturn("\n".join(lines_text), old=combine_rest(*lines))
+    old = combine_rest(*statements)
+    if declare_globals:
+        used_globals = old.variables.difference(params).difference(old.locals)
+        if len(used_globals) > 0:
+            lines.insert(0, ParserReturn(f"global {','.join(list(used_globals))}"))
+        old.variables = used_globals
+    if is_global:
+        if len(old.variables) > 0:
+            lines.insert(0, ParserReturn(f"{','.join(list(old.variables))} = {','.join([str(None) for _ in range(len(old.variables))])}"))
+    lines_text = [f"{'    ' * clamp(depth,0,1)}{line.line}" for line in lines]
+    return ParserReturn("\n".join(lines_text), old=old)
 
 
 def walk_exp_un_op(node, depth):
@@ -240,7 +280,7 @@ def get_bin_op(value):
 
 def _get_bin_op(value):
     match value:
-        case  "~=":
+        case "~=":
             return "!=", 0, False
         case "^^":
             return "^", 0, False
@@ -266,11 +306,14 @@ def _get_bin_op(value):
 
 def walk_stat_local_assignment(node, depth):
     # for now
-    exps = [walk_exp(exp, depth) for exp in node.explist.exps]
     names = [walk_tok_name(name, depth) for name in node.namelist.names]
+    if node.explist is not None:
+        exps = [walk_exp(exp, depth) for exp in node.explist.exps]
+    else:
+        exps = [ParserReturn(str(None)) for _ in range(len(names))]
     assert (len(exps) == len(names))
     return ParserReturn(",".join(parser_return_lines(names)) + " = " + ",".join(parser_return_lines(exps)),
-                        old=combine_rest(*exps, *names))
+                        old=combine_rest(*exps, *names), locals=set(parser_return_lines(names)))
 
 
 def walk_stat_return(node, depth):
@@ -283,15 +326,17 @@ def walk_stat_return(node, depth):
 def walk_stat_function(node, depth):
     func_body = walk_func_body(node.funcbody, depth)
     name_path = [walk_tok_name(name, depth) for name in node.funcname.namepath]
-    return ParserReturn(f"def {'.'.join(parser_return_lines(name_path))}{func_body.line}",
-                        old=combine_rest(*name_path, func_body))
+    function_name = '.'.join(parser_return_lines(name_path))
+    return ParserReturn(f"def {function_name}{func_body.line}", old=combine_rest(*name_path, func_body),
+                        function_defs={function_name, })
 
 
 def walk_func_body(node, depth):
-    code = walk_chunk(node.block, depth + 1)
     parameter_list = []
     if node.parlist is not None:
         parameter_list = [walk_tok_name(name, depth) for name in node.parlist.names]
+    params = set(parser_return_lines(parameter_list))
+    code = walk_chunk(node.block, depth + 1, True, params)
     return ParserReturn(f"({','.join(parser_return_lines(parameter_list))}):\n{code.line}",
                         old=combine_rest(*parameter_list, code))
 
@@ -302,11 +347,11 @@ def walk_stat_break(node, depth):
 
 
 def walk_stat_repeat(node, depth):
-    code_chunk = walk_chunk(node.block, depth)
+    code_chunk = walk_chunk(node.block, depth, False)
     # TODO make this better MAYBE ( not required)
-    code_chunk_inside = walk_chunk(node.block, depth + 1)
+    code_chunk_inside = walk_chunk(node.block, depth + 1, False)
     condition = walk_exp(node.exp, depth)
-    code_inside = walk_chunk(node.block, depth + 1)
+    code_inside = walk_chunk(node.block, depth + 1, False)
     if code_chunk.line.strip() == "pass":
         return ParserReturn(f"while {condition.line}:\n{code_inside.line}", old=combine_rest(condition, code_inside))
     return ParserReturn(f"{code_chunk.line}\nwhile {condition.line}:\n{code_chunk_inside.line}",
@@ -328,7 +373,7 @@ def walk_for_in_iter(function_call, depth):
 
 
 def walk_stat_for_in(node, depth):
-    code_inside = walk_chunk(node.block, depth + 1)
+    code_inside = walk_chunk(node.block, depth + 1, False)
     name_list = [walk_tok_name(name, depth) for name in node.namelist.names]
     assert len(node.explist.exps) == 1
     iter_call = walk_for_in_iter(node.explist.exps[0].value, depth)
@@ -337,7 +382,7 @@ def walk_stat_for_in(node, depth):
 
 
 def walk_stat_for_step(node, depth):
-    code_inside = walk_chunk(node.block, depth + 1)
+    code_inside = walk_chunk(node.block, depth + 1, False)
     # Todo fix this +1
     range_args = [walk_exp(node.exp_init, depth), walk_exp(node.exp_end, depth)]
     variable_name = walk_tok_name(node.name, depth)
@@ -350,7 +395,7 @@ def walk_stat_for_step(node, depth):
 
 def walk_stat_while(node, depth):
     condition = walk_exp(node.exp, depth)
-    code_inside = walk_chunk(node.block, depth + 1)
+    code_inside = walk_chunk(node.block, depth + 1, False)
     return ParserReturn(f"while {condition.line}:\n{code_inside.line}", old=combine_rest(condition, code_inside))
 
 
@@ -361,7 +406,7 @@ def walk_stat_if(node, depth):
     final = ""
     old = ParserReturn("")
     for cond, chunk in node.exp_block_pairs:
-        chunk_out = walk_chunk(chunk, depth + 1)
+        chunk_out = walk_chunk(chunk, depth + 1, False)
         condition = None
         if cond is not None:
             condition = walk_exp(cond, depth)
@@ -372,10 +417,10 @@ def walk_stat_if(node, depth):
             first = False
             continue
         elif condition is None:
-            final += f"else:\n{chunk_out.line}"
+            final += f"\nelse:\n{chunk_out.line}"
             old = combine_rest(old, chunk_out)
         else:
-            final += f"elif {condition.line}:\n{chunk_out.line}"
+            final += f"\nelif {condition.line}:\n{chunk_out.line}"
             old = combine_rest(old, condition, chunk_out)
     return ParserReturn(final, old=old)
 
@@ -385,7 +430,12 @@ def walk_stat_function_call(node, depth):
 
 
 def walk_function_call(node, depth):
-    function_name = walk_var_name(node.exp_prefix)
+    function_name = walk_var_name(node.exp_prefix)  # TODO This would need to be changed later prob
+
+    # move the variables to function calls as its only gonna have the name of the function
+    function_name.function_calls = function_name.variables
+    function_name.variables = set()
+
     args = walk_function_call_args(node.args, depth)
     return ParserReturn(f"{function_name.line}{args.line}", old=combine_rest(function_name, args))
 
