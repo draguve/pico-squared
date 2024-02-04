@@ -28,7 +28,7 @@ function tostring(any)
     return "unkown" -- should never show
 end
 
-function test(arg,...)
+function test1(arg,...)
 	local dict = {...}
 	x,y,z = ...
 	print(tostring(dict))
@@ -37,9 +37,9 @@ function test(arg,...)
 	print(tostring(z))
 end
 
-test("a","b","c","f")
+test1("a","b","c","f")
 
-function test(arg,...)
+function test2(arg,...)
 	local dict = {...}
 	x,y,z = ...,10
 	print(tostring(dict))
@@ -48,9 +48,9 @@ function test(arg,...)
 	print(tostring(z))
 end
 
-test("a","b","c","f")
+test2("a","b","c","f")
 
-function test(arg,...)
+function test3(arg,...)
 	local dict = {...}
 	x,y,z = 10,...
 	print(tostring(dict))
@@ -59,17 +59,8 @@ function test(arg,...)
 	print(tostring(z))
 end
 
-function test(arg,...)
-	local dict = {...}
-	x,y,z = 10,...
-	print(tostring(dict))
-	print(tostring(x))
-	print(tostring(y))
-	print(tostring(z))
-end
-
-test("a","b","c","f")
-test("a","b")
+test3("a","b","c","f")
+test3("a","b")
 
 --does not work
 --function test(arg,...)

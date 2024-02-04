@@ -47,6 +47,7 @@ end)
 
 function select (n, ...)
     x = ...
+    x,y = ...
     local data = {...}
     return data[n]
 end

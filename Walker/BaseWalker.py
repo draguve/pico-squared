@@ -1,6 +1,7 @@
 from picotool.pico8.lua.parser import *
 from dataclasses import dataclass, InitVar, field
 from Util import get_random_string, clamp
+import re
 
 
 @dataclass
@@ -103,11 +104,24 @@ def walk_statement(node, state: ParserState):
 def walk_stat_assignment(node, state):
     vars = [walk_var(var, state) for var in node.varlist.vars]
     exps = [walk_exp(exp, state) for exp in node.explist.exps]
-    assert (len(vars) == len(exps))
     assignop = node.assignop.value.decode("utf-8")
+
     if assignop == "=":
+        old = combine_rest(*vars, *exps)
+        if old.varargs_used and len(vars) > len(exps):
+            for i in range(len(exps), len(vars)):
+                if state.varargs_name not in exps[i - 1].line:
+                    break
+                last_num = int(re.split("\[|\]", exps[i - 1].line)[1])
+                exps.append(ParserReturn(f"{state.varargs_name}[{last_num+1}]"))
+        assert len(vars) > 0
+        assert len(exps) > 0
+        if len(vars) < len(exps):
+            exps = exps[0:len(vars)]
+        elif len(vars) > len(exps):
+            exps.extend([ParserReturn(str(None)) for i in range(len(vars) - len(exps))])
         return ParserReturn(",".join([var.line for var in vars]) + " = " + ",".join([exp.line for exp in exps]),
-                            old=combine_rest(*vars, *exps))
+                            old=old)
     else:
         assert (len(vars) == 1)
         exp1, exp2 = vars[0], exps[0]
@@ -143,7 +157,7 @@ def walk_table_constructor(node, state):
     if old.varargs_used and len(list_half) == 1:
         # only varargs
         old.varargs_used = False
-        return ParserReturn(f"{state.varargs_name}",old=old)
+        return ParserReturn(f"{state.varargs_name}", old=old)
     list_half = f'[{",".join(list_half)}]'
     dict_half = "{" + ",".join([f"{i}:{j}" for i, j in dict_half.items()]) + "}"
     return ParserReturn('Table(' + list_half + ',' + dict_half + ')', old=old)
