@@ -62,6 +62,78 @@ end
 test3("a","b","c","f")
 test3("a","b")
 
+print("---------5--------")
+
+function test4(...)
+	local dict = {...}
+	print(tostring(dict))
+end
+
+function test5(...)
+	test4(...)
+end
+
+test5("a","b")
+
+print("---------6--------")
+
+function test6(...)
+	test4("12",...)
+end
+
+test6("a","b")
+
+print("---------7--------")
+
+-- does not emit working code here
+
+function check(a)
+	print(a)
+end
+
+function test7(...)
+	check(...)
+end
+
+test7("a","b")
+
+print("---------8--------")
+
+function check(a,b,c)
+	print(a)
+	print(b)
+	print(c)
+end
+
+function test8(...)
+	check(...)
+end
+
+test8("a","b")
+
+print("---------9--------")
+
+function check(a,b,c)
+	print(a)
+	print(b)
+	print(c)
+end
+
+function test9(...)
+	check("x",...,"z")
+end
+
+test9("a","b")
+
+--[[
+crashes
+function test10()
+	check(...)
+end 
+
+test10() 
+--]]
+
 --does not work
 --function test(arg,...)
 --	print(tostring(...[1]))

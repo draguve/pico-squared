@@ -372,6 +372,8 @@ def walk_func_body(node, state):
     if node.parlist is not None:
         parameter_list = [walk_tok_name(name, state) for name in node.parlist.names]
     params = set(parser_return_lines(parameter_list))
+    for i in range(len(parameter_list)):
+        parameter_list[i].line = parameter_list[i].line + "=None"
     if node.dots is not None:
         parameter_list.append(ParserReturn("*argv"))
         varargs = True
@@ -487,6 +489,12 @@ def walk_function_call_args(node, state):
             args = []
             if node.explist is not None:
                 args = [walk_exp(exp, state) for exp in node.explist.exps]
+            old = combine_rest(*args)
+            if old.varargs_used:
+                old.varargs_used = False # TODO Make sure this is fixed later
+                if state.varargs_name in args[- 1].line:
+                    args.pop()
+                    args.append(ParserReturn(f"*{state.varargs_name}.list"))
             return ParserReturn(f"({','.join(parser_return_lines(args))})", old=combine_rest(*args))
         case "TableConstructor":
             table = walk_table_constructor(node, state)
