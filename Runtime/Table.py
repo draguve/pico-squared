@@ -29,6 +29,9 @@ class Table:
             else:
                 self.dict[key] = value
 
+    def __len__(self):
+        return len(self.list)
+
 
 def iall(table):
     for i in table.list:

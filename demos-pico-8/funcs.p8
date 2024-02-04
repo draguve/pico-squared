@@ -42,8 +42,14 @@ end
 foreach(x, function(v) print(v^2) end)
 
 anonymousfunctions(function(x)
-  print(x)
+    print(x)
 end)
+
+function select (n, ...)
+    -- x = ...
+    -- local data = {...}
+    return data[n]
+end
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

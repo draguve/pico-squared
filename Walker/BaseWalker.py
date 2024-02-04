@@ -1,6 +1,6 @@
 from picotool.pico8.lua.parser import *
 from dataclasses import dataclass, InitVar, field
-from Util import get_random_string,clamp
+from Util import get_random_string, clamp
 
 
 @dataclass
@@ -53,7 +53,7 @@ def get_all_set_variables(arr: list[ParserReturn]):
 def walk(node, depth):
     match type(node).__name__:
         case "Chunk":
-            chunk = walk_chunk(node, declare_globals=False,is_global=True)
+            chunk = walk_chunk(node, declare_globals=False, is_global=True)
             assert len(chunk.prev_lines) == 0
             return chunk.line
         # case "StatAssignment":
@@ -218,12 +218,13 @@ def walk_var_name(node):
     return ParserReturn(variableName, variables={variableName, })
 
 
-def walk_chunk(node, depth=0, declare_globals=True, params=None, is_global=False):
+def walk_chunk(node, depth=0, declare_globals=True, params=None, is_global=False, varargs=False):
     lines = []
     if params is None:
         params = set()
-    if declare_globals:
-        pass
+    if varargs:
+        name = f"vararg_{get_random_string(10)}"
+        lines.append(ParserReturn(name + ' = Table(argv,{b"#":len('+name+')})'))
     statements = [walk_statement(statement, depth=depth) for statement in node.stats]
     for statement in statements:
         if statement.prev_lines is not None:
@@ -236,13 +237,16 @@ def walk_chunk(node, depth=0, declare_globals=True, params=None, is_global=False
     old = combine_rest(*statements)
     if declare_globals:
         used_globals = old.variables.difference(params).difference(old.locals)
+        if varargs:
+            used_globals.discard("arg")
         if len(used_globals) > 0:
             lines.insert(0, ParserReturn(f"global {','.join(list(used_globals))}"))
         old.variables = used_globals
     if is_global:
         if len(old.variables) > 0:
-            lines.insert(0, ParserReturn(f"{','.join(list(old.variables))} = {','.join([str(None) for _ in range(len(old.variables))])}"))
-    lines_text = [f"{'    ' * clamp(depth,0,1)}{line.line}" for line in lines]
+            lines.insert(0, ParserReturn(
+                f"{','.join(list(old.variables))} = {','.join([str(None) for _ in range(len(old.variables))])}"))
+    lines_text = [f"{'    ' * clamp(depth, 0, 1)}{line.line}" for line in lines]
     return ParserReturn("\n".join(lines_text), old=old)
 
 
@@ -333,10 +337,14 @@ def walk_stat_function(node, depth):
 
 def walk_func_body(node, depth):
     parameter_list = []
+    varargs = False
     if node.parlist is not None:
         parameter_list = [walk_tok_name(name, depth) for name in node.parlist.names]
     params = set(parser_return_lines(parameter_list))
-    code = walk_chunk(node.block, depth + 1, True, params)
+    if node.dots is not None:
+        parameter_list.append(ParserReturn("*argv"))
+        varargs = True
+    code = walk_chunk(node.block, depth + 1, True, params,varargs=varargs)
     return ParserReturn(f"({','.join(parser_return_lines(parameter_list))}):\n{code.line}",
                         old=combine_rest(*parameter_list, code))
 
