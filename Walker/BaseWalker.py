@@ -11,6 +11,7 @@ class ParserReturn:
     function_defs: set = field(default_factory=set)
     function_calls: set = field(default_factory=set)
     locals: set = field(default_factory=set)
+    varargs_used: bool = False
     old: InitVar[object | None] = None
 
     def __post_init__(self, old):
@@ -21,6 +22,7 @@ class ParserReturn:
             self.function_defs = old.function_defs.union(self.function_defs)
             self.function_calls = old.function_calls.union(self.function_calls)
             self.locals = old.locals.union(self.locals)
+            self.varargs_used = old.varargs_used or self.varargs_used
 
 
 @dataclass
@@ -35,14 +37,16 @@ def combine_rest(*returns):
     prev_funcs = set()
     prev_calls = set()
     prev_locals = set()
+    varargs_used = False
     for arg in returns:
         prev_lines.extend(arg.prev_lines)
         prev_variables = prev_variables.union(arg.variables)
         prev_funcs = prev_funcs.union(arg.function_defs)
         prev_calls = prev_calls.union(arg.function_calls)
         prev_locals = prev_locals.union(arg.locals)
+        varargs_used = varargs_used or arg.varargs_used
     return ParserReturn("", prev_lines=prev_lines, variables=prev_variables, function_defs=prev_funcs,
-                        function_calls=prev_calls, locals=prev_locals)
+                        function_calls=prev_calls, locals=prev_locals, varargs_used=varargs_used)
 
 
 def parser_return_lines(arr: list[ParserReturn]):
@@ -136,6 +140,10 @@ def walk_table_constructor(node, state):
                 dict_half[key_exp.line] = value_exp.line
             case _:
                 raise NotImplementedError("Not implemented yet")
+    if old.varargs_used and len(list_half) == 1:
+        # only varargs
+        old.varargs_used = False
+        return ParserReturn(f"{state.varargs_name}",old=old)
     list_half = f'[{",".join(list_half)}]'
     dict_half = "{" + ",".join([f"{i}:{j}" for i, j in dict_half.items()]) + "}"
     return ParserReturn('Table(' + list_half + ',' + dict_half + ')', old=old)
@@ -189,6 +197,8 @@ def walk_exp(node, state):
             return walk_exp_bin_op(node, state)
         case "ExpUnOp":
             return walk_exp_un_op(node, state)
+        case "VarargDots":
+            return ParserReturn(f"{state.varargs_name}[0]", varargs_used=True)
         case _:
             raise NotImplementedError("Not implemented yet")
 
@@ -231,6 +241,7 @@ def walk_chunk(node, state: ParserState, declare_globals=True, params=None, is_g
     if varargs:
         name = f"vararg_{get_random_string(10)}"
         lines.append(ParserReturn(name + ' = Table(argv,{b"#":len(' + name + ')})'))
+        state = ParserState(state.depth, varargs_name=name)
     statements = [walk_statement(statement, state=state) for statement in node.stats]
     for statement in statements:
         if statement.prev_lines is not None:
@@ -350,7 +361,7 @@ def walk_func_body(node, state):
     if node.dots is not None:
         parameter_list.append(ParserReturn("*argv"))
         varargs = True
-    code = walk_chunk(node.block, ParserState(state.depth+1, state.varargs_name), True, params, varargs=varargs)
+    code = walk_chunk(node.block, ParserState(state.depth + 1, state.varargs_name), True, params, varargs=varargs)
     return ParserReturn(f"({','.join(parser_return_lines(parameter_list))}):\n{code.line}",
                         old=combine_rest(*parameter_list, code))
 
@@ -363,9 +374,9 @@ def walk_stat_break(node, state):
 def walk_stat_repeat(node, state):
     code_chunk = walk_chunk(node.block, state, False)
     # TODO make this better MAYBE ( not required)
-    code_chunk_inside = walk_chunk(node.block, ParserState(state.depth+1, state.varargs_name), False)
+    code_chunk_inside = walk_chunk(node.block, ParserState(state.depth + 1, state.varargs_name), False)
     condition = walk_exp(node.exp, state)
-    code_inside = walk_chunk(node.block, ParserState(state.depth+1, state.varargs_name), False)
+    code_inside = walk_chunk(node.block, ParserState(state.depth + 1, state.varargs_name), False)
     if code_chunk.line.strip() == "pass":
         return ParserReturn(f"while {condition.line}:\n{code_inside.line}", old=combine_rest(condition, code_inside))
     return ParserReturn(f"{code_chunk.line}\nwhile {condition.line}:\n{code_chunk_inside.line}",
@@ -387,16 +398,16 @@ def walk_for_in_iter(function_call, state):
 
 
 def walk_stat_for_in(node, state):
-    code_inside = walk_chunk(node.block,ParserState(state.depth+1, state.varargs_name), False)
-    name_list = [walk_tok_name(name, ParserState(state.depth+1, state.varargs_name)) for name in node.namelist.names]
+    code_inside = walk_chunk(node.block, ParserState(state.depth + 1, state.varargs_name), False)
+    name_list = [walk_tok_name(name, ParserState(state.depth + 1, state.varargs_name)) for name in node.namelist.names]
     assert len(node.explist.exps) == 1
-    iter_call = walk_for_in_iter(node.explist.exps[0].value, ParserState(state.depth+1, state.varargs_name))
+    iter_call = walk_for_in_iter(node.explist.exps[0].value, ParserState(state.depth + 1, state.varargs_name))
     return ParserReturn(f"for {','.join(parser_return_lines(name_list))} in {iter_call.line}:\n{code_inside.line}",
                         old=combine_rest(code_inside, *name_list, iter_call))
 
 
 def walk_stat_for_step(node, state):
-    code_inside = walk_chunk(node.block,ParserState(state.depth+1, state.varargs_name), False)
+    code_inside = walk_chunk(node.block, ParserState(state.depth + 1, state.varargs_name), False)
     # Todo fix this +1
     range_args = [walk_exp(node.exp_init, state), walk_exp(node.exp_end, state)]
     variable_name = walk_tok_name(node.name, state)
@@ -409,7 +420,7 @@ def walk_stat_for_step(node, state):
 
 def walk_stat_while(node, state):
     condition = walk_exp(node.exp, state)
-    code_inside = walk_chunk(node.block, ParserState(state.depth+1, state.varargs_name), False)
+    code_inside = walk_chunk(node.block, ParserState(state.depth + 1, state.varargs_name), False)
     return ParserReturn(f"while {condition.line}:\n{code_inside.line}", old=combine_rest(condition, code_inside))
 
 
@@ -420,7 +431,7 @@ def walk_stat_if(node, state):
     final = ""
     old = ParserReturn("")
     for cond, chunk in node.exp_block_pairs:
-        chunk_out = walk_chunk(chunk, ParserState(state.depth+1, state.varargs_name), False)
+        chunk_out = walk_chunk(chunk, ParserState(state.depth + 1, state.varargs_name), False)
         condition = None
         if cond is not None:
             condition = walk_exp(cond, state)

@@ -46,8 +46,8 @@ anonymousfunctions(function(x)
 end)
 
 function select (n, ...)
-    -- x = ...
-    -- local data = {...}
+    x = ...
+    local data = {...}
     return data[n]
 end
 
