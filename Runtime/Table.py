@@ -8,7 +8,7 @@ class Table:
         self.list = list_half
 
     def __getitem__(self, item):
-        if isinstance(o, bytes):
+        if isinstance(item, bytes):
             return self.dict.get(item, None)
         else:
             idx = int(item)
@@ -28,6 +28,9 @@ class Table:
                     del self.dict[key]
             else:
                 self.dict[key] = value
+
+    def __len__(self):
+        return len(self.list)
 
 
 def iall(table):

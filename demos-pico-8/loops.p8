@@ -29,13 +29,6 @@ while x do
   if condition then break end
 end
 
--- same as the example above, but very terse
--- x=0 while(x<5) print(x) x+=1
-
--- stop and wait synchronously for any button to be pressed
--- while(btn() == 0) flip()
-
-
 tbl = {2, 3, 5, 7, 11}
 for v in all(tbl) do
   print(v)
@@ -45,6 +38,14 @@ tbl = {a=1, b=2, c=3}
 for k,v in pairs(tbl) do
   print(k.."="..v)
 end
+
+for x=1,10,3 do print(x) end   -- 1,4,7,10
+
+-- same as the example above, but very terse
+x=0 while(x<5) print(x) x+=1
+
+-- stop and wait synchronously for any button to be pressed
+while(btn() == 0) flip()
 
 --[[
 function list_iter(t)
