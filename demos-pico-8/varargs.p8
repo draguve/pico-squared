@@ -85,8 +85,6 @@ test6("a","b")
 
 print("---------7--------")
 
--- does not emit working code here
-
 function check1(a)
 	print(a)
 end

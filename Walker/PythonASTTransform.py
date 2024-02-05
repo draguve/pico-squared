@@ -12,7 +12,8 @@ class PythonASTTransform(lua.BaseASTWalker):
         super().__init__(tokens, root)
 
     def _walk_StatFunction(self, node):
-        name_path = [BaseWalker.walk_tok_name(name, BaseWalker.ParserState(0)) for name in node.funcname.namepath]
+        name_path = [BaseWalker.swalk_tok_name(name) for name in node.funcname.namepath]
+        node.func_name = ".".join(BaseWalker.parser_return_lines(name_path))  # TODO this prob will be changed when i need to change the code for metatables
         self.current_function_name.append(".".join(BaseWalker.parser_return_lines(name_path)))
         for i in lua._default_node_handler(self, node):
             yield i
