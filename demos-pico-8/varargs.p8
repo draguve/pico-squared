@@ -87,40 +87,40 @@ print("---------7--------")
 
 -- does not emit working code here
 
-function check(a)
+function check1(a)
 	print(a)
 end
 
 function test7(...)
-	check(...)
+	check1(...)
 end
 
 test7("a","b")
 
 print("---------8--------")
 
-function check(a,b,c)
+function check2(a,b,c)
 	print(a)
 	print(b)
 	print(c)
 end
 
 function test8(...)
-	check(...)
+	check2(...)
 end
 
 test8("a","b")
 
 print("---------9--------")
 
-function check(a,b,c)
+function check3(a,b,c)
 	print(a)
 	print(b)
 	print(c)
 end
 
 function test9(...)
-	check("x",...,"z")
+	check3("x",...,"z")
 end
 
 test9("a","b")

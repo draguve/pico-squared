@@ -27,5 +27,5 @@ if __name__ == '__main__':
     # main("demos-pico-8/conditionals.p8")
     # main("demos-pico-8/loops.p8")
     # main("demos-pico-8/tables.p8")
-    # main("demos-pico-8/funcs.p8")
-    main("demos-pico-8/varargs.p8")
+    main("demos-pico-8/funcs.p8")
+    # main("demos-pico-8/varargs.p8")

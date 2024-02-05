@@ -1,6 +1,7 @@
 from picotool.pico8.lua.parser import *
 from dataclasses import dataclass, InitVar, field
 from Util import get_random_string, clamp
+from Walker.PythonASTTransform import PythonASTTransform
 import re
 
 
@@ -64,6 +65,10 @@ def get_all_set_variables(arr: list[ParserReturn]):
 def walk(node, state):
     match type(node).__name__:
         case "Chunk":
+            transform = PythonASTTransform(node.tokens, node)
+            for i in transform.walk():
+                pass
+            print(transform.all_functions)
             chunk = walk_chunk(node, ParserState(), declare_globals=False, is_global=True)
             assert len(chunk.prev_lines) == 0
             return chunk.line
@@ -113,7 +118,7 @@ def walk_stat_assignment(node, state):
                 if state.varargs_name not in exps[i - 1].line:
                     break
                 last_num = int(re.split("\[|\]", exps[i - 1].line)[1])
-                exps.append(ParserReturn(f"{state.varargs_name}[{last_num+1}]"))
+                exps.append(ParserReturn(f"{state.varargs_name}[{last_num + 1}]"))
         assert len(vars) > 0
         assert len(exps) > 0
         if len(vars) < len(exps):
@@ -198,7 +203,7 @@ def walk_exp_value(node, state):
 
 # when passed as value
 def walk_function(node, state):
-    func_name = f"anon_{get_random_string(10)}"
+    func_name = node.func_name
     func_body = walk_func_body(node.funcbody, state)
     return ParserReturn(func_name, [f"def {func_name}{func_body.line}"], function_defs={func_name, })
 
@@ -491,7 +496,7 @@ def walk_function_call_args(node, state):
                 args = [walk_exp(exp, state) for exp in node.explist.exps]
             old = combine_rest(*args)
             if old.varargs_used:
-                old.varargs_used = False # TODO Make sure this is fixed later
+                old.varargs_used = False  # TODO Make sure this is fixed later
                 if state.varargs_name in args[- 1].line:
                     args.pop()
                     args.append(ParserReturn(f"*{state.varargs_name}.list"))
