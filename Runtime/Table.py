@@ -4,15 +4,15 @@ class Table:
             dict_half = {}
         if list_half is None:
             list_half = []
-        self.dict = dict_half
-        self.list = list_half
+        self.dict = dict(dict_half)
+        self.list = list(list_half)
 
     def __getitem__(self, item):
         if isinstance(item, bytes):
             return self.dict.get(item, None)
         else:
             idx = int(item)
-            if 1 <= idx <= len(self.list) + 1:
+            if 1 <= idx <= len(self.list):
                 return self.list[idx - 1]
             else:
                 return self.dict.get(item, None)

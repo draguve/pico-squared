@@ -197,3 +197,4 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 temp.txt
+temp.py

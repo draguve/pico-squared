@@ -15,7 +15,7 @@ def main(filename):
     print("-" * 100)
     test = format_str(test, mode=FileMode())
     print(test)
-    with open("temp.txt", "w") as binary_file:
+    with open("temp.py", "w") as binary_file:
         binary_file.write(test)
 
 
