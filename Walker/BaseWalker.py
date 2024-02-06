@@ -14,6 +14,8 @@ class ParserReturn:
     function_calls: set = field(default_factory=set)
     locals: set = field(default_factory=set)
     varargs_used: bool = False
+    call_name: str = ""
+    multi_return: bool = False
     old: InitVar[object | None] = None
 
     def __post_init__(self, old):
@@ -25,6 +27,7 @@ class ParserReturn:
             self.function_calls = old.function_calls.union(self.function_calls)
             self.locals = old.locals.union(self.locals)
             self.varargs_used = old.varargs_used or self.varargs_used
+            self.multi_return = old.multi_return or self.multi_return
 
 
 @dataclass
@@ -40,6 +43,7 @@ def combine_rest(*returns):
     prev_calls = set()
     prev_locals = set()
     varargs_used = False
+    multi_return = False
     for arg in returns:
         prev_lines.extend(arg.prev_lines)
         prev_variables = prev_variables.union(arg.variables)
@@ -47,8 +51,10 @@ def combine_rest(*returns):
         prev_calls = prev_calls.union(arg.function_calls)
         prev_locals = prev_locals.union(arg.locals)
         varargs_used = varargs_used or arg.varargs_used
+        multi_return = multi_return or arg.multi_return
     return ParserReturn("", prev_lines=prev_lines, variables=prev_variables, function_defs=prev_funcs,
-                        function_calls=prev_calls, locals=prev_locals, varargs_used=varargs_used)
+                        function_calls=prev_calls, locals=prev_locals, varargs_used=varargs_used,
+                        multi_return=multi_return)
 
 
 def parser_return_lines(arr: list[ParserReturn]):
@@ -65,7 +71,7 @@ def get_all_set_variables(arr: list[ParserReturn]):
 class BaseWalker:
     def __init__(self):
         self.current_function_path = []
-        pass
+        self.transform = None
 
     def walk(self, node, state):
         match type(node).__name__:
@@ -73,7 +79,7 @@ class BaseWalker:
                 transform = PythonASTTransform(node.tokens, node)
                 for i in transform.walk():
                     pass
-                print(transform.all_functions)
+                self.transform = transform
                 chunk = self.walk_chunk(node, ParserState(), declare_globals=False, is_global=True)
                 assert len(chunk.prev_lines) == 0
                 return chunk.line
@@ -116,16 +122,23 @@ class BaseWalker:
 
         if assignop == "=":
             old = combine_rest(*vars, *exps)
+            # TODO make sure this vars>exps thing can be limit tested
             if old.varargs_used and len(vars) > len(exps):
                 for i in range(len(exps), len(vars)):
                     if state.varargs_name not in exps[i - 1].line:
                         break
                     last_num = int(re.split("\[|\]", exps[i - 1].line)[1])
                     exps.append(ParserReturn(f"{state.varargs_name}[{last_num + 1}]"))
+            if old.multi_return and len(vars) > len(exps):
+                for i in range(len(exps), len(vars)):
+                    if not exps[i - 1].multi_return:
+                        break
+                    last_num = int(re.split("\[|\]", exps[i - 1].line)[1])
+                    exps.append(ParserReturn(f"{exps[i-1].call_name}[{last_num+1}]",multi_return=True,call_name=exps[i-1].call_name))
             assert len(vars) > 0
             assert len(exps) > 0
             if len(vars) < len(exps):
-                exps = exps[0:len(vars)]
+                vars.extend([ParserReturn("_") for i in range(len(exps) - len(vars))])
             elif len(vars) > len(exps):
                 exps.extend([ParserReturn(str(None)) for i in range(len(vars) - len(exps))])
             return ParserReturn(",".join([var.line for var in vars]) + " = " + ",".join([exp.line for exp in exps]),
@@ -377,7 +390,8 @@ class BaseWalker:
             # parameter_list.append(ParserReturn("*argv"))
             varargs = True
 
-        code = self.walk_chunk(node.block, ParserState(state.depth + 1, state.varargs_name), True, params, varargs=varargs)
+        code = self.walk_chunk(node.block, ParserState(state.depth + 1, state.varargs_name), True, params,
+                               varargs=varargs)
         return ParserReturn(f"({','.join(parser_return_lines(parameter_list))}):\n{code.line}",
                             old=combine_rest(*parameter_list, code))
 
@@ -469,9 +483,17 @@ class BaseWalker:
         # move the variables to function calls as its only gonna have the name of the function
         function_name.function_calls = function_name.variables
         function_name.variables = set()
-
+        returns_shape_is_inconsistent, max_number = self.transform.returns_meta_data.get(
+            frozenset([function_name.line]),
+            (False, 0))  # TODO if it fails check in the stuff that the runtime will provide
         args = self.walk_function_call_args(node.args, state)
-        return ParserReturn(f"{function_name.line}{args.line}", old=combine_rest(function_name, args))
+        old = combine_rest(function_name, args)
+        if max_number > 1:
+            random_name = f"fcall_{get_random_string(10)}"
+            prev_line = f"{random_name} = Table({function_name.line}{args.line})"
+            return ParserReturn(f"{random_name}[1]", multi_return=True, old=old, prev_lines=[prev_line],
+                                call_name=random_name)
+        return ParserReturn(f"{function_name.line}{args.line}", old=old)
 
     def walk_function_call_args(self, node, state):
         match type(node).__name__:
