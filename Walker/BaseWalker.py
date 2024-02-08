@@ -16,6 +16,7 @@ class ParserReturn:
     varargs_used: bool = False
     call_name: str = ""
     multi_return: bool = False
+    is_bound_method: bool = False
     old: InitVar[object | None] = None
 
     def __post_init__(self, old):
@@ -28,12 +29,14 @@ class ParserReturn:
             self.locals = old.locals.union(self.locals)
             self.varargs_used = old.varargs_used or self.varargs_used
             self.multi_return = old.multi_return or self.multi_return
+            self.is_bound_method = old.is_bound_method or self.is_bound_method
 
 
 @dataclass
 class ParserState:
     depth: int = 0
     varargs_name: str = ""
+    is_method: bool = False
 
 
 def combine_rest(*returns):
@@ -44,6 +47,7 @@ def combine_rest(*returns):
     prev_locals = set()
     varargs_used = False
     multi_return = False
+    is_bound_method = False
     for arg in returns:
         prev_lines.extend(arg.prev_lines)
         prev_variables = prev_variables.union(arg.variables)
@@ -52,9 +56,10 @@ def combine_rest(*returns):
         prev_locals = prev_locals.union(arg.locals)
         varargs_used = varargs_used or arg.varargs_used
         multi_return = multi_return or arg.multi_return
+        is_bound_method = is_bound_method or arg.is_bound_method
     return ParserReturn("", prev_lines=prev_lines, variables=prev_variables, function_defs=prev_funcs,
                         function_calls=prev_calls, locals=prev_locals, varargs_used=varargs_used,
-                        multi_return=multi_return)
+                        multi_return=multi_return, is_bound_method=is_bound_method)
 
 
 def parser_return_lines(arr: list[ParserReturn]):
@@ -134,7 +139,8 @@ class BaseWalker:
                     if not exps[i - 1].multi_return:
                         break
                     last_num = int(re.split("\[|\]", exps[i - 1].line)[1])
-                    exps.append(ParserReturn(f"{exps[i-1].call_name}[{last_num+1}]",multi_return=True,call_name=exps[i-1].call_name))
+                    exps.append(ParserReturn(f"{exps[i - 1].call_name}[{last_num + 1}]", multi_return=True,
+                                             call_name=exps[i - 1].call_name))
             assert len(vars) > 0
             assert len(exps) > 0
             if len(vars) < len(exps):
@@ -367,20 +373,40 @@ class BaseWalker:
         return ParserReturn(f"return {','.join(parser_return_lines(return_val))}".strip(),
                             old=combine_rest(*return_val))
 
+    # TODO The return for this is a complete hack, need to fix this
+    def walk_func_name(self, node, state):
+        if node.methodname is None:
+            name_path = [self.walk_tok_name(name, state) for name in node.namepath]
+            return ParserReturn(".".join(parser_return_lines(name_path)), old=combine_rest(*name_path))
+        else:
+            function_name = f"method_{get_random_string(20)}"
+            name_path = ".".join(parser_return_lines([self.walk_tok_name(name, state) for name in node.namepath]))
+            method_name = str(node.methodname.value)
+            # TODO Might be a problem this does not add the old here
+            return ParserReturn(function_name, prev_lines=[f"{name_path}.bind({method_name},{function_name})"],
+                                is_bound_method=True)
+
     def walk_stat_function(self, node, state):
         self.current_function_path.append(node.func_name)
-        func_body = self.walk_func_body(node.funcbody, state)
-        name_path = [self.walk_tok_name(name, state) for name in node.funcname.namepath]
-        function_name = '.'.join(parser_return_lines(name_path))
+        function_name = self.walk_func_name(node.funcname, state)
+        func_body = self.walk_func_body(node.funcbody,
+                                        ParserState(depth=state.depth, is_method=function_name.is_bound_method))
         self.current_function_path.pop()
-        return ParserReturn(f"def {function_name}{func_body.line}", old=combine_rest(*name_path, func_body),
-                            function_defs={function_name, })
+        output = f"def {function_name.line}{func_body.line}"
+        if len(function_name.prev_lines) > 0:
+            next_line = '\n'.join(function_name.prev_lines)
+            function_name.prev_lines = []
+            output += f"\n{next_line}"
+        return ParserReturn(output, old=combine_rest(function_name, func_body),
+                            function_defs={function_name.line, })
 
     def walk_func_body(self, node, state):
         parameter_list = []
         varargs = False
         if node.parlist is not None:
             parameter_list = [self.walk_tok_name(name, state) for name in node.parlist.names]
+        if state.is_method:
+            parameter_list.insert(0, ParserReturn("self"))
         params = set(parser_return_lines(parameter_list))
         for i in range(len(parameter_list)):
             parameter_list[i].line = parameter_list[i].line + "=None"
@@ -478,15 +504,18 @@ class BaseWalker:
         return self.walk_function_call(node.functioncall, state)
 
     def walk_function_call(self, node, state):
-        function_name = self.walk_var_name(node.exp_prefix)  # TODO This would need to be changed later prob
-
+        function_name = self.walk_var(node.exp_prefix, state)  # TODO This would need to be changed later prob
         # move the variables to function calls as its only gonna have the name of the function
         function_name.function_calls = function_name.variables
         function_name.variables = set()
         returns_shape_is_inconsistent, max_number = self.transform.returns_meta_data.get(
             frozenset([function_name.line]),
             (False, 0))  # TODO if it fails check in the stuff that the runtime will provide
-        args = self.walk_function_call_args(node.args, state)
+        additional = None
+        if hasattr(node, 'methodname') and node.methodname is not None:
+            function_name = ParserReturn(f"{function_name.line}.run_bound", old=function_name)
+            additional = ParserReturn(f"{str(node.methodname.value)}")
+        args = self.walk_function_call_args(node.args, state, additional=additional)
         old = combine_rest(function_name, args)
         if max_number > 1:
             random_name = f"fcall_{get_random_string(10)}"
@@ -495,7 +524,7 @@ class BaseWalker:
                                 call_name=random_name)
         return ParserReturn(f"{function_name.line}{args.line}", old=old)
 
-    def walk_function_call_args(self, node, state):
+    def walk_function_call_args(self, node, state, additional=None):
         match type(node).__name__:
             case "TokString":
                 return ParserReturn(f"({str(node.value)})")
@@ -503,6 +532,8 @@ class BaseWalker:
                 args = []
                 if node.explist is not None:
                     args = [self.walk_exp(exp, state) for exp in node.explist.exps]
+                if additional is not None:
+                    args.insert(0, additional)
                 old = combine_rest(*args)
                 if old.varargs_used:
                     old.varargs_used = False  # TODO Make sure this is fixed later

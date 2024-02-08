@@ -4,6 +4,7 @@ class Table:
             dict_half = {}
         if list_half is None:
             list_half = []
+        self.bound_funcs = {}
         self.dict = dict(dict_half)
         self.list = list(list_half)
 
@@ -31,6 +32,12 @@ class Table:
 
     def __len__(self):
         return len(self.list)
+
+    def bind(self, method, function):
+        self.bound_funcs[method] = function
+
+    def run_bound(self, method, *args):
+        return self.bound_funcs[method](self, *args)
 
 
 def iall(table):

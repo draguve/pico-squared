@@ -1,6 +1,16 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
+
+local handypackage = {
+  handyfunc = function(x, y)
+    return x + y
+  end,
+  handynumber = 3.14,
+}
+
+print(handypackage.handyfunc(1,2))
+
 ball = {
   xpos = 60,
   ypos = 60

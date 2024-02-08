@@ -54,7 +54,8 @@ class PythonASTTransform(lua.BaseASTWalker):
                 elif last_number_of_args != 0:
                     last_number_of_args = max(last_number_of_args, 0)
                     returns_shape_is_inconsistent = True
-
+        if last_number_of_args is None:
+            last_number_of_args = 0
         self.returns_meta_data[frozenset(self.current_function_name)] = (
             returns_shape_is_inconsistent, last_number_of_args)
 
